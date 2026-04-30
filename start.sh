@@ -46,7 +46,7 @@ fi
 # uv sync: installs exact versions from uv.lock, creates .venv automatically
 # Only re-runs if uv.lock changed — otherwise instant
 echo "  Syncing Python dependencies..."
-uv sync --frozen -q
+uv sync --frozen --no-install-project -q
 source .venv/bin/activate
 echo "  ✓ Python dependencies ready"
 
