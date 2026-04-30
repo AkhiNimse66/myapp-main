@@ -1,0 +1,38 @@
+{
+  "summary": "Phase 2 end-to-end testing of My Pay: Stripe repay-checkout, payment status polling, webhook signature, admin mark-repaid + credit recycling, ML default model, social connect placeholder, extended dashboard summary. 14/15 backend pytest assertions pass + all critical frontend flows verified. One backend issue: GET /api/payments/status/{session_id} returns 502 immediately after session creation (Stripe says 'No such checkout.session') - likely a race / proxy-key inconsistency in emergentintegrations between create and get on freshly minted cs_test_* sessions.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/payments/status/{session_id}", "issue": "Immediately after POST /deals/{id}/repay-checkout creates a Stripe session (cs_test_*), polling status returns 502 with 'No such checkout.session: <sid>'. Endpoint path/auth correct, txn record persisted in Mongo (we still find it locally - 404 path verified). Likely emergent Stripe proxy propagation delay or per-request key mapping mismatch. Adding a 2-3s sleep + 1 retry, or letting the polling UI re-query, may mask it; a real brand opening the checkout URL would let Stripe finalize before polling. Worth investigating with the integration vendor."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2_api.py",
+    "/app/backend/tests/test_mypay_api.py",
+    "/app/test_reports/pytest/phase2_results.xml"
+  ],
+  "action_items": [
+    "Investigate emergentintegrations Stripe payment-status 'No such checkout.session' immediately after creation. Either add a server-side retry-with-backoff in /api/payments/status/{sid}, or document that the first poll should happen >=2s after redirect. Optional: surface 502 as a transient state in the polling UI rather than a hard error."
+  ],
+  "critical_code_review_comments": [
+    "server.py line 567 - 'outstanding' uses sum of advance_amount only over disbursed/awaiting_payment statuses (correct for Phase 2). Repaid deals correctly excluded from outstanding and added to total_repaid. Available = credit_limit - used_credit. Math verified.",
+    "server.py /webhook/stripe - relies on stripe.handle_webhook to verify signature; bogus signature correctly rejected with 400. _settle_repayment is idempotent (only credit-recycles when payment_transactions.payment_status flips to paid).",
+    "server.py /admin/deals/{id}/mark-repaid - sets manual_repayment audit trail (by + at). Confirmed dashboard.outstanding shrinks and dashboard.available recycles after admin call.",
+    "server.py /creator/social/connect creates a social_profile if none exists with followers=0/er=0/auth=0 - this would zero-out a creator's existing health if they had no profile yet. Mitigated for current seeded creator (already has profile). Consider preserving any existing followers/er when initial profile is seeded by social-connect.",
+    "ml_service / analyze: risk.ml block (default_prob, survival_prob, ml_score, model_auc) returned and persisted; verified end-to-end on Deal Detail UI ('ML DEFAULT PROB. 1.65% / SURVIVAL 98.3 / Model AUC 0.84').",
+    "frontend/Dashboard 4-column KPI: Credit Limit / Outstanding Advance ($34,728) / Lifetime Settled ($6,650) / Creator Health Index (82.2) all populated from /api/dashboard/summary - design clean."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase2_api.py"],
+  "success_rate": {"backend": "93% (14/15 pytest in phase2 + all 20 phase1 still green)", "frontend": "100% on Phase 2 components (KPI cards, ML widget, repayment ledger, social connect, admin mark-repaid, ML status card, deals filters)"},
+  "test_credentials": "creator@mypay.io/Creator@123, admin@mypay.io/Admin@123 (both verified)",
+  "seed_data_creation": "Created TEST_P2_* deals (undisbursed, ml_block, 69f6f5, ae1010, uploaded_repay) for creator@mypay.io. Some are now in repaid/awaiting_payment state from the test run. Low volume, no cleanup needed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 2 backend test file is /app/backend/tests/test_phase2_api.py - 15 cases covering ML status, analyze.ml block, repay-checkout (uploaded->400, disbursed->200 with cs_test_ session), payment-status polling, webhook 400 on bad signature, admin mark-repaid + credit recycling, social connect for all 4 platforms. Run with `pytest backend/tests/test_phase2_api.py -v`. The single failing test (test_payment_status_polling) is a real upstream behavior - main agent may want to add a small retry inside /api/payments/status/{sid}. STRIPE_API_KEY=sk_test_emergent in /app/backend/.env returns real cs_test_* sessions via emergentintegrations proxy. Mocked APIs: Instagram/TikTok/YouTube/X social connect (returns pending_meta_review) and ML model (synthetic 1k deal training, AUC 0.84). UI verified disbursed/repaid Deal Detail shows ml-prediction widget + repayment-ledger correctly with proper data.",
+  "rca of the issue": "/api/payments/status/{sid} 502 RCA: emergentintegrations.payments.stripe.checkout.StripeCheckout.get_checkout_status(sid) raises 'No such checkout.session: <sid>' for sessions created moments earlier in the same process via the same client. Same webhook_url is used in both calls, so it's not key-mismatch via webhook_url. Reproduction: POST /api/deals/{id}/repay-checkout (returns cs_test_xyz + url) -> immediate GET /api/payments/status/cs_test_xyz -> 502. Mitigation options: (a) on 502, retry once after 1.5s in payment_status endpoint; (b) gate first poll in the UI behind a 2-3s delay (the polling toast already does this on the success-redirect path); (c) when emergentintegrations exposes idempotency keys or a session cache, switch to that. No data corruption — payment_transactions row is correctly persisted with status=initiated and only flips to paid via the webhook or a successful poll."
+}

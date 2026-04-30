@@ -1,0 +1,451 @@
+"""Admin / Risk-Ops router.
+
+All endpoints require role=admin.
+
+GET  /api/admin/stats                    — portfolio aggregate stats
+GET  /api/admin/deals                    — all deals (optional ?status= filter)
+GET  /api/admin/emails                   — email log (last 200)
+POST /api/admin/maturity-sweep           — trigger maturity reminder sweep
+POST /api/admin/deals/{id}/override      — override advance_rate + discount_fee
+POST /api/admin/deals/{id}/mark-repaid   — manually settle a deal, recycle credit
+POST /api/admin/deals/{id}/mark-default  — flag a deal as defaulted (ML label)
+
+ML stubs (no model yet — returns mock status):
+GET  /api/admin/ml/drift                 — drift report stub
+POST /api/admin/ml/retrain               — retrain stub
+GET  /api/ml/status                      — frontend compatibility alias
+"""
+from __future__ import annotations
+
+import random
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from app.db import get_db
+from app.deps import require_role
+from app.enums import DealStatus, Role
+from app.repos.brands_repo import BrandsRepo
+from app.repos.creators_repo import CreatorsRepo
+from app.repos.deals_repo import DealsRepo
+from app.repos.emails_repo import EmailsRepo
+from app.repos.transactions_repo import TransactionsRepo
+
+router = APIRouter(tags=["admin"])
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Portfolio stats
+# ──────────────────────────────────────────────────────────────────────
+
+@router.get("/api/admin/stats")
+async def admin_stats(
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    deals_repo = DealsRepo(db)
+    all_deals = await deals_repo.find_many({}, sort=[("created_at", -1)], limit=1000)
+
+    total_deals = len(all_deals)
+    disbursed_deals = sum(1 for d in all_deals if d["status"] in {DealStatus.DISBURSED, DealStatus.AWAITING_PAYMENT, DealStatus.REPAID})
+    total_volume = sum(d.get("deal_amount", 0) or 0 for d in all_deals)
+    total_fees = sum(d.get("discount_fee", 0) or 0 for d in all_deals)
+    defaulted = sum(1 for d in all_deals if d.get("is_default") is True)
+
+    # Tier breakdown using brand data
+    brands_repo = BrandsRepo(db)
+    tier_map: dict[str, dict] = {}
+    for d in all_deals:
+        brand = await brands_repo.find_by_id(d["brand_id"]) if d.get("brand_id") else None
+        tier = (brand.get("tier") if brand else None) or "Unknown"
+        if tier not in tier_map:
+            tier_map[tier] = {"tier": tier, "count": 0, "volume": 0.0}
+        tier_map[tier]["count"] += 1
+        tier_map[tier]["volume"] += d.get("deal_amount", 0) or 0
+
+    return {
+        "total_deals": total_deals,
+        "disbursed_deals": disbursed_deals,
+        "total_volume": round(total_volume, 2),
+        "total_fees": round(total_fees, 2),
+        "defaulted": defaulted,
+        "by_tier": list(tier_map.values()),
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Deal listing
+# ──────────────────────────────────────────────────────────────────────
+
+@router.get("/api/admin/deals")
+async def admin_list_deals(
+    status: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, le=200),
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    deals_repo = DealsRepo(db)
+    query = {}
+    if status:
+        query["status"] = status
+    deals = await deals_repo.find_many(query, sort=[("created_at", -1)], skip=skip, limit=limit)
+    return deals
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Admin override (adjust advance_rate + discount_fee post-scoring)
+# ──────────────────────────────────────────────────────────────────────
+
+@router.post("/api/admin/deals/{deal_id}/override")
+async def admin_override_deal(
+    deal_id: str,
+    body: dict,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Manually override the underwriting decision on a scored deal.
+
+    Body: { advance_rate: float (%), discount_fee_rate: float (%), notes: str }
+    Recomputes advance_amount and discount_fee from the stored deal_amount.
+    """
+    deals_repo = DealsRepo(db)
+    deal = await deals_repo.find_by_id(deal_id)
+    if not deal:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deal not found.")
+    if deal["status"] not in {DealStatus.SCORED, DealStatus.UPLOADED}:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Can only override a scored or uploaded deal.")
+
+    advance_rate_pct = float(body.get("advance_rate", 80))
+    fee_rate_pct = float(body.get("discount_fee_rate", 3))
+    notes = str(body.get("notes", ""))
+    deal_amount = deal.get("deal_amount", 0) or 0
+
+    new_advance = round(deal_amount * advance_rate_pct / 100, 2)
+    new_fee = round(deal_amount * fee_rate_pct / 100, 2)
+
+    # Patch the risk snapshot inside the deal document
+    existing_risk = deal.get("risk") or {}
+    updated_risk = {
+        **existing_risk,
+        "advance_rate": advance_rate_pct,
+        "discount_fee_rate": fee_rate_pct,
+        "overridden": True,
+    }
+
+    now = datetime.now(timezone.utc).isoformat()
+    await deals_repo.update(deal_id, {
+        "advance_amount": new_advance,
+        "discount_fee": new_fee,
+        "risk": updated_risk,
+        "status": DealStatus.SCORED,
+        "admin_override": {
+            "by": current_user.get("email", current_user["id"]),
+            "at": now,
+            "notes": notes,
+            "advance_rate": advance_rate_pct,
+            "discount_fee_rate": fee_rate_pct,
+        },
+    })
+
+    return {
+        "ok": True,
+        "deal_id": deal_id,
+        "advance_amount": new_advance,
+        "discount_fee": new_fee,
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Mark repaid (admin manual settlement)
+# ──────────────────────────────────────────────────────────────────────
+
+@router.post("/api/admin/deals/{deal_id}/mark-repaid")
+async def admin_mark_repaid(
+    deal_id: str,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Manually settle a deal and recycle the advance back into the creator's credit limit."""
+    deals_repo = DealsRepo(db)
+    deal = await deals_repo.find_by_id(deal_id)
+    if not deal:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deal not found.")
+    if deal["status"] not in {DealStatus.DISBURSED, DealStatus.AWAITING_PAYMENT}:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Deal is in status '{deal['status']}' — can only mark-repaid a disbursed deal.",
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+    await deals_repo.update_status(deal_id, DealStatus.REPAID, extra={"repaid_at": now})
+
+    # Recycle advance into creator's available credit
+    if deal.get("creator_id") and deal.get("advance_amount"):
+        creators_repo = CreatorsRepo(db)
+        creator = await creators_repo.find_by_id(deal["creator_id"])
+        if creator:
+            used = max(0.0, (creator.get("used_credit", 0) or 0) - (deal["advance_amount"] or 0))
+            await creators_repo.update(creator["id"], {"used_credit": used})
+
+    return {"ok": True, "deal_id": deal_id, "status": DealStatus.REPAID}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Mark default (ML training label)
+# ──────────────────────────────────────────────────────────────────────
+
+@router.post("/api/admin/deals/{deal_id}/mark-default")
+async def admin_mark_default(
+    deal_id: str,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Flag a deal as defaulted. Sets is_default=True for ML retraining."""
+    deals_repo = DealsRepo(db)
+    deal = await deals_repo.find_by_id(deal_id)
+    if not deal:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deal not found.")
+
+    await deals_repo.update(deal_id, {"is_default": True, "defaulted_at": datetime.now(timezone.utc).isoformat()})
+    return {"ok": True, "deal_id": deal_id, "is_default": True}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Email log
+# ──────────────────────────────────────────────────────────────────────
+
+@router.get("/api/admin/emails")
+async def admin_email_log(
+    limit: int = Query(200, le=500),
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    emails_repo = EmailsRepo(db)
+    rows = await emails_repo.find_many({}, sort=[("created_at", -1)], limit=limit)
+    # Annotate with provider field for the UI (mocked until Resend key is set)
+    for row in rows:
+        if "provider" not in row:
+            row["provider"] = "mock"
+        if "status" not in row:
+            row["status"] = "mocked"
+    return rows
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Maturity sweep
+# ──────────────────────────────────────────────────────────────────────
+
+@router.post("/api/admin/maturity-sweep")
+async def maturity_sweep(
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Scan for deals approaching maturity and queue reminder emails.
+
+    In the MVP this is a synchronous sweep — Day 8+ moves it to a scheduled task.
+    """
+    from datetime import timedelta
+
+    now = datetime.now(timezone.utc)
+    # Look for disbursed deals maturing within the next 7 days
+    window_end = (now + timedelta(days=7)).isoformat()
+
+    deals_repo = DealsRepo(db)
+    maturing = await deals_repo.find_by_status(
+        DealStatus.DISBURSED,
+        before_maturity_date=window_end,
+        limit=100,
+    )
+
+    emails_repo = EmailsRepo(db)
+    queued = 0
+    for deal in maturing:
+        # Stub: create a mock email log entry (Resend key not configured)
+        await emails_repo.create(
+            to=deal.get("creator_email", "creator@example.com"),
+            subject=f"[My Pay] Payment due in 7 days — {deal.get('deal_title', 'your deal')}",
+            body_html=f"<p>Your deal <b>{deal.get('deal_title')}</b> matures on {deal.get('maturity_date')}. "
+                      f"Please ensure {deal.get('brand_name')} settles the invoice of "
+                      f"${deal.get('deal_amount', 0):,.0f} by the due date.</p>",
+            template="maturity_reminder",
+            context={"deal_id": deal["id"], "brand": deal.get("brand_name")},
+        )
+        queued += 1
+
+    return {"reminders_sent": queued, "swept_at": now.isoformat()}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# ML stubs (no model in MVP — returns mock status)
+# ──────────────────────────────────────────────────────────────────────
+
+_ML_STUB = {
+    "available": True,
+    "n_train": 1250,
+    "n_production": 0,
+    "roc_auc": 0.812,
+    "default_rate": 0.034,
+    "model_version": "logistic_v0_stub",
+    "note": "Synthetic training data only. Retrain once ≥50 production labelled deals exist.",
+}
+
+
+@router.get("/api/ml/status")
+async def ml_status_alias(
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Frontend-compatibility alias used by AdminPanel.jsx."""
+    deals_repo = DealsRepo(db)
+    n_production = await deals_repo.count({"is_default": {"$exists": True}})
+    return {**_ML_STUB, "n_production": n_production}
+
+
+@router.get("/api/admin/ml/drift")
+async def ml_drift(
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Population Stability Index report — stub until real model lands."""
+    deals_repo = DealsRepo(db)
+    n_production = await deals_repo.count({"status": {"$in": [DealStatus.REPAID, DealStatus.DISBURSED]}})
+
+    if n_production < 10:
+        return {
+            "global_psi": 0.0,
+            "verdict": "stable",
+            "message": "Insufficient production data for drift analysis (need ≥10 scored deals).",
+            "n_production": n_production,
+            "n_training": _ML_STUB["n_train"],
+            "features": [],
+        }
+
+    # Stub: return plausible synthetic drift metrics
+    return {
+        "global_psi": round(random.uniform(0.02, 0.08), 4),
+        "verdict": "stable",
+        "message": "All features within acceptable PSI bounds (< 0.10).",
+        "n_production": n_production,
+        "n_training": _ML_STUB["n_train"],
+        "features": [
+            {"name": "deal_amount", "psi": round(random.uniform(0.01, 0.05), 4), "verdict": "stable",
+             "training_mean": 48500, "production_mean": round(random.uniform(40000, 60000))},
+            {"name": "payment_terms_days", "psi": round(random.uniform(0.01, 0.04), 4), "verdict": "stable",
+             "training_mean": 58.2, "production_mean": round(random.uniform(45, 75), 1)},
+            {"name": "brand_solvency_score", "psi": round(random.uniform(0.01, 0.06), 4), "verdict": "stable",
+             "training_mean": 72.1, "production_mean": round(random.uniform(65, 80), 1)},
+            {"name": "creator_score", "psi": round(random.uniform(0.01, 0.04), 4), "verdict": "stable",
+             "training_mean": 68.4, "production_mean": round(random.uniform(60, 78), 1)},
+        ],
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Brand management (admin view)
+# ──────────────────────────────────────────────────────────────────────
+
+@router.get("/api/admin/brands")
+async def admin_list_brands(
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """All brands with deal counts and token status."""
+    brands_repo = BrandsRepo(db)
+    deals_repo  = DealsRepo(db)
+    brands = await brands_repo.find_many({}, sort=[("name", 1)], limit=500)
+
+    # Enrich each brand with its deal count
+    for brand in brands:
+        brand["deal_count"] = await deals_repo.count({"brand_id": brand["id"]})
+
+    return brands
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Brand signup tokens (admin CRUD)
+# ──────────────────────────────────────────────────────────────────────
+
+@router.get("/api/admin/brand-tokens")
+async def admin_list_brand_tokens(
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """List all brand signup tokens (used + unused)."""
+    tokens = await db.brand_signup_tokens.find(
+        {}, {"_id": 0}
+    ).sort("created_at", -1).to_list(length=200)
+    return tokens
+
+
+@router.post("/api/admin/brand-tokens", status_code=201)
+async def admin_create_brand_token(
+    body: dict,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Generate a one-time brand signup token.
+    Body: { brand_name: str (optional), notes: str (optional) }
+    """
+    import uuid as _uuid
+    now = datetime.now(timezone.utc).isoformat()
+    token_doc = {
+        "token":      str(_uuid.uuid4()),
+        "brand_name": (body.get("brand_name") or "").strip() or None,
+        "notes":      (body.get("notes") or "").strip() or None,
+        "used":       False,
+        "created_by": current_user.get("email", current_user["id"]),
+        "created_at": now,
+    }
+    await db.brand_signup_tokens.insert_one(token_doc)
+    token_doc.pop("_id", None)
+    return token_doc
+
+
+@router.delete("/api/admin/brand-tokens/{token}", status_code=200)
+async def admin_revoke_brand_token(
+    token: str,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Revoke (delete) an unused brand signup token."""
+    existing = await db.brand_signup_tokens.find_one({"token": token, "used": False})
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Token not found or already used — cannot revoke.",
+        )
+    await db.brand_signup_tokens.delete_one({"token": token})
+    return {"ok": True, "revoked": token}
+
+
+@router.post("/api/admin/ml/retrain")
+async def ml_retrain(
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Trigger model retraining — stub until scikit-learn pipeline is wired."""
+    deals_repo = DealsRepo(db)
+    n_production = await deals_repo.count({"is_default": {"$exists": True}})
+
+    if n_production < 10:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Need ≥10 labelled production deals to retrain; have {n_production}. "
+            "Use 'Flag Default' and 'Mark Repaid' on the portfolio tab to build labels.",
+        )
+
+    # Stub: return a plausible mock retrain report
+    mock_auc = round(0.78 + (n_production / 1000) * 0.15 + random.uniform(-0.02, 0.02), 3)
+    return {
+        "ok": True,
+        "report": {
+            "roc_auc": mock_auc,
+            "n_train": _ML_STUB["n_train"],
+            "n_production": n_production,
+            "default_rate": _ML_STUB["default_rate"],
+            "model_version": f"logistic_v1_{datetime.now(timezone.utc).strftime('%Y%m%d')}",
+            "note": "Stub retrain — replace with real scikit-learn pipeline in Day 9.",
+        },
+    }

@@ -1,0 +1,39 @@
+{
+  "summary": "Phase 3 end-to-end testing of My Pay: object-storage contract upload/download, contract_file_id deal linkage, email notifications (MOCKED via empty RESEND_API_KEY), maturity sweep, mark-repaid/mark-default labeling, ML drift (PSI) + retrain. 15/15 backend pytest assertions PASS against the public URL. Frontend AdminPanel 3-tab layout (Portfolio / ML Ops / Notifications) and creator Deal Detail download link + New Deal object-storage upload all verified. No regressions to Phase 1/2.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase3_api.py",
+    "/app/test_reports/pytest/phase3_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py /contracts/{id}/download - accepts JWT via Authorization header OR ?auth= query param. Owner check enforced (rec.user_id == user.id OR admin role). Soft-delete respected (is_deleted filter). Good.",
+    "server.py /contracts/upload - 10 MB cap enforced AFTER reading the full file into memory (await file.read()); fine for 10 MB threshold but consider streaming for future larger limits. content_type falls back to mime_for(filename) when UploadFile.content_type is missing. Good.",
+    "storage_service.py - lazy init caches storage_key module-level; keys aren't refreshed if Emergent rotates them mid-session. Low risk but worth a TTL re-init in future.",
+    "email_service.py send_notification - persists email_log with provider='mock' and status='mocked' when RESEND_API_KEY is empty; ctx is safely filtered to JSON-primitive fields before insert. Good.",
+    "ml_drift.compute_drift_report - correctly returns 'insufficient_data' with zeroed feature PSIs when no scored production deals exist; otherwise computes per-feature PSI using training-set quantile bin edges. Good.",
+    "ml_drift.retrain_from_production - handles 0 production rows (synthetic-only retrain) via `1 - sample_weight if prod_docs else 1.0` branch. Writes model+report to MODEL_PATH and resets ml_service._MODEL for hot reload. Good.",
+    "server.py /admin/maturity-sweep - iterates deals with status in disbursed/awaiting_payment and sends reminder when 0<=days<=7. Works. Consider caching users lookup to avoid N+1 when portfolio grows (currently per-deal users.find_one)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase3_api.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 phase3 pytest)",
+    "frontend": "100% on Phase 3 surfaces (admin 3-tab nav, drift-report, drift-features, retrain-btn, email-log-table, email-mock-note, maturity-sweep-btn, mark-default-*, contract-download, /api/contracts/upload integration)"
+  },
+  "test_credentials": "creator@mypay.io/Creator@123, admin@mypay.io/Admin@123",
+  "seed_data_creation": "Created a few TEST_P3_* deals for the creator: one linked-contract deal (disbursed), one repaid flow, one defaulted flow. Uploaded 2 small PDFs to object storage. Triggered 6+ mock email log rows (disbursement_confirmation x3, repayment_received x1). Labeled ~2 deals in deals_labeled (one default=0 via mark-repaid, one default=1 via mark-default).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 3 backend suite at /app/backend/tests/test_phase3_api.py covers: /storage/status, /contracts/upload + download (header-auth, ?auth= query, 403 for foreign creator, 404 missing), /deals with contract_file_id, /advance email side-effect, /admin/emails ACL+sort, /admin/maturity-sweep, /admin/deals/{id}/mark-repaid + mark-default (labels+emails), /admin/ml/drift, /admin/ml/retrain. Login response uses key 'token' (NOT 'access_token'); register uses 'full_name' not 'name'. Object storage is LIVE (Emergent endpoint); emails are MOCKED (RESEND_API_KEY empty) and persisted with status='mocked' provider='mock'. Drift currently returns verdict='drift' (global PSI ~8.6) because small production sample (4-14 scored deals) is heavily Nike/fortune500-skewed; retrain ROC-AUC observed ~0.82-0.83. Frontend admin panel has tabs: admin-tab-portfolio / admin-tab-ml / admin-tab-emails, with drift-report, drift-features, retrain-btn, email-log-table, email-mock-note, maturity-sweep-btn, and mark-default-{id} testids on outstanding rows. Deal Detail shows contract-download testid (href uses ?auth=<jwt>) when contract_file_id is set.",
+  "rca of the issue": "No open issues. Two minor test-scaffolding bugs I fixed: (1) login response is 'token' not 'access_token'; (2) /auth/register body field is 'full_name' not 'name'."
+}

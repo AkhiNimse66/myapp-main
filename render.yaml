@@ -1,0 +1,63 @@
+# render.yaml — My Pay deployment config
+# Render reads this file automatically when you connect your GitHub repo.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # ── Backend: FastAPI ─────────────────────────────────────────────
+  - type: web
+    name: mypay-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    autoDeploy: true   # redeploys every time you push to GitHub
+
+    envVars:
+      # ── Set these in the Render dashboard (Environment tab) ──────
+      # Never put real values here — this file is in git
+      - key: MONGO_URL
+        sync: false          # you paste the Atlas URL in the dashboard
+
+      - key: DB_NAME
+        value: mypay_prod
+
+      - key: JWT_SECRET
+        generateValue: true  # Render auto-generates a secure random value
+
+      - key: CORS_ORIGINS
+        sync: false          # paste your Vercel URL after frontend deploys
+
+      # ── Safe defaults ─────────────────────────────────────────────
+      - key: APP_NAME
+        value: mypay
+      - key: JWT_ALGO
+        value: HS256
+      - key: JWT_EXPIRE_HOURS
+        value: "72"
+      - key: PAYOUT_MODE
+        value: mock
+      - key: CONTRACT_PARSER_MODE
+        value: mock
+      - key: CREATOR_INTEL_MODE
+        value: mock
+      - key: BRAND_INTEL_MODE
+        value: mock
+      - key: COMPLIANCE_MODE
+        value: mock
+      - key: RISK_POLICY
+        value: fixed_mvp
+      - key: ENGINE_VERSION
+        value: 1.0.0
+      - key: SENDER_EMAIL
+        value: notifications@mypay.io
+
+      # ── Optional: set in dashboard when you have real keys ────────
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

@@ -1,0 +1,120 @@
+{
+  "theme": "light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "vibe": "Analytical, data-dense, authoritative, and confident. Avoids all 'generic SaaS' tropes by marrying an editorial print aesthetic with Bloomberg-terminal data density.",
+  "colors": {
+    "background": {
+      "primary": "#FFFFFF",
+      "secondary": "#F3F4F6",
+      "tertiary": "#E5E7EB",
+      "surface": "#FAFAFA"
+    },
+    "text": {
+      "primary": "#0A0A0A",
+      "secondary": "#52525B",
+      "tertiary": "#A1A1AA",
+      "inverse": "#FFFFFF"
+    },
+    "accents": {
+      "brand": "#002FA7",
+      "success": "#16A34A",
+      "warning": "#EAB308",
+      "danger": "#DC2626",
+      "highlight": "#FACC15"
+    },
+    "borders": {
+      "default": "#E4E4E7",
+      "focus": "#0A0A0A",
+      "active": "#18181B"
+    }
+  },
+  "typography": {
+    "font_families": {
+      "heading": "Instrument Serif, serif",
+      "body": "Geist, Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "hierarchy": {
+      "h1": "text-5xl lg:text-6xl font-normal tracking-tight leading-none",
+      "h2": "text-3xl lg:text-4xl font-normal tracking-tight leading-tight",
+      "h3": "text-xl lg:text-2xl font-medium tracking-tight",
+      "body": "text-base font-normal leading-relaxed text-zinc-950",
+      "data": "font-mono text-sm tracking-tight",
+      "label": "text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500"
+    },
+    "font_install_instructions": "Import Instrument Serif, Geist, and JetBrains Mono from Google Fonts in index.css or via Next/Font if applicable."
+  },
+  "layout_spacing": {
+    "philosophy": "Mode B: 'Control Room' grid. Dense, precise, highly structured. Utilizing 1px sharp borders to separate sections, creating an architectural feel.",
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "grid_gap": "gap-px bg-zinc-200",
+    "card_padding": "p-6 lg:p-8",
+    "section_spacing": "py-12 lg:py-20"
+  },
+  "component_treatments": {
+    "cards": {
+      "style": "Flat solid background, sharp corners (rounded-none or max rounded-sm), 1px solid border. NO SHADOWS. Pure brutalist clarity."
+    },
+    "buttons": {
+      "primary": "bg-zinc-950 text-white rounded-none px-6 py-3 font-medium hover:bg-zinc-800 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-zinc-950",
+      "secondary": "bg-transparent text-zinc-950 border border-zinc-950 rounded-none px-6 py-3 font-medium hover:bg-zinc-100 transition-colors"
+    },
+    "inputs": {
+      "style": "Rounded-none border-b border-zinc-300 bg-transparent px-0 py-2 focus:border-zinc-950 focus:ring-0 transition-colors font-mono text-sm"
+    },
+    "tables": {
+      "style": "Dense tabular layout. Font-mono for numbers. 1px bottom borders for rows. Right-aligned numerical columns. Minimal padding (py-2)."
+    },
+    "gauges_scorecards": {
+      "style": "SVG semi-circle arcs. 1px stroke. High-contrast colors (e.g., solid black stroke for base, thick green/red stroke for value). Large editorial serif for the central score number."
+    },
+    "status_chips": {
+      "style": "1px solid border, transparent background, colored text. Example: border-zinc-300 text-zinc-950 for 'Pending', border-green-600 text-green-700 for 'Verified'."
+    }
+  },
+  "visual_enhancers": {
+    "borders": "Expose the grid. Wrap sections in border-collapse layouts with 1px border-zinc-200.",
+    "icons": "Use Phosphor Icons (regular or thin weight). Precision and geometry.",
+    "motion": "Minimal. Instant state changes preferred. Tiny micro-interactions on hover (-translate-y-px or border color change) but no bouncy/spring physics."
+  },
+  "media_urls": {
+    "creator_profiles": [
+      {
+        "url": "https://images.pexels.com/photos/12432698/pexels-photo-12432698.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Creator avatar / profile photo (Female, tech/beauty creator setup)"
+      },
+      {
+        "url": "https://images.pexels.com/photos/4793171/pexels-photo-4793171.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Creator avatar / profile photo (Selfie ring light setup)"
+      }
+    ],
+    "brand_verification_backgrounds": [
+      {
+        "url": "https://images.pexels.com/photos/29264456/pexels-photo-29264456.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Abstract glass facade for Brand Verification loading states or backdrop"
+      },
+      {
+        "url": "https://images.pexels.com/photos/24374219/pexels-photo-24374219.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Urban architecture for solvency/corporate dashboard headers"
+      }
+    ],
+    "brand_logos": [
+      {
+        "url": "https://images.pexels.com/photos/9635254/pexels-photo-9635254.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Minimalist placeholder for brand/sponsor logo inside the Deals table"
+      },
+      {
+        "url": "https://images.pexels.com/photos/7661185/pexels-photo-7661185.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Second minimalist placeholder for brand/sponsor logo"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "DO NOT use generic Shadcn border-radius presets. Override them to `rounded-none` or `rounded-sm` for a sharp print-inspired look.",
+    "Data components (Tables, Score Cards, Risk Gauges) must heavily utilize JetBrains Mono for numbers/metrics. The numbers must feel authoritative.",
+    "Use Instrument Serif for primary widget titles and page headers (H1/H2). Ensure tracking is tight.",
+    "DO NOT use shadows (shadow-md, shadow-lg). Instead, rely on `border border-zinc-200` to define surface boundaries.",
+    "In the Creator Health and Brand Solvency widgets, utilize raw SVG elements for charts and gauges to keep the DOM light. Use solid stroke colors, NO gradients.",
+    "Add `data-testid` to all actionable items and key data points (e.g., `data-testid='contract-upload-button'`, `data-testid='risk-score-value'`)."
+  ]
+}
