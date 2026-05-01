@@ -9,11 +9,31 @@ import {
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [deals, setDeals]     = useState([]);
+  const [error, setError]     = useState(null);
 
   useEffect(() => {
     Promise.all([api.get("/dashboard/summary"), api.get("/deals")])
-      .then(([s, d]) => { setSummary(s.data); setDeals(d.data); });
+      .then(([s, d]) => { setSummary(s.data); setDeals(d.data); })
+      .catch((err) => {
+        const status = err?.response?.status;
+        if (status === 401 || status === 403) {
+          // Stale token — clear it and bounce to login
+          localStorage.removeItem("mypay_token");
+          window.location.href = "/login";
+        } else {
+          setError(err?.response?.data?.detail || "Failed to load dashboard.");
+        }
+      });
   }, []);
+
+  if (error) return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
+      <p className="mono text-sm text-red-500">{error}</p>
+      <button className="btn-primary text-sm" onClick={() => window.location.reload()}>
+        Retry
+      </button>
+    </div>
+  );
 
   if (!summary) return (
     <div className="min-h-[60vh] flex items-center justify-center mono text-sm text-zinc-400">
