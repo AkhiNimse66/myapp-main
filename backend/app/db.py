@@ -12,7 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from app.config import get_settings
 
-logger = logging.getLogger("mypay.db")
+logger = logging.getLogger("athanni.db")
 
 _client: Optional[AsyncIOMotorClient] = None
 _db: Optional[AsyncIOMotorDatabase] = None

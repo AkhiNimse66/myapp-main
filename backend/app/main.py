@@ -32,7 +32,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger("mypay")
+logger = logging.getLogger("athanni")
 
 
 @asynccontextmanager
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
     db = get_db()
     await ensure_indexes(db)
     logger.info(
-        "My Pay API booted · db=%s · risk_policy=%s · creator_intel=%s · brand_intel=%s · compliance=%s",
+        "Athanni API booted · db=%s · risk_policy=%s · creator_intel=%s · brand_intel=%s · compliance=%s",
         settings.DB_NAME,
         settings.RISK_POLICY,
         settings.CREATOR_INTEL_MODE,
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="My Pay API",
+        title="Athanni API",
         version=settings.ENGINE_VERSION,
         lifespan=lifespan,
     )
@@ -84,7 +84,7 @@ def create_app() -> FastAPI:
     @app.get("/")
     async def root():
         return {
-            "service": "My Pay API",
+            "service": "Athanni API",
             "status": "ok",
             "version": settings.ENGINE_VERSION,
         }

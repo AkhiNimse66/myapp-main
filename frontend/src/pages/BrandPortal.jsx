@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api, money } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import { AthanniLogo } from "../components/AthanniLogo";
 
 // Status chip reused from the design system
 function StatusChip({ status }) {
@@ -46,7 +47,7 @@ export default function BrandPortal() {
     setSubmitting(true);
     try {
       await api.post(`/deals/${confirming.id}/brand-confirm-payment`, { utr_number: utr });
-      toast.success("Payment confirmation received. My Pay will verify and settle.");
+      toast.success("Payment confirmation received. Athanni will verify and settle.");
       setConfirming(null);
       load();
     } catch (err) {
@@ -67,9 +68,9 @@ export default function BrandPortal() {
     <div className="min-h-screen bg-zinc-50">
       {/* ── Header ────────────────────────────────────────────────── */}
       <header className="bg-white border-b hair px-8 py-4 flex items-center justify-between">
-        <div>
-          <span className="serif text-2xl">My Pay</span>
-          <span className="mono text-xs text-zinc-400 ml-3">· Brand Portal</span>
+        <div className="flex items-center gap-2">
+          <AthanniLogo size="sm" dark={false} />
+          <span className="mono text-xs text-zinc-400 ml-1">· Brand Portal</span>
         </div>
         <div className="flex items-center gap-6">
           <span className="mono text-xs text-zinc-500">{user?.name}</span>
@@ -115,7 +116,7 @@ export default function BrandPortal() {
         {/* ── Bank details callout ─────────────────────────────────── */}
         {bankDetails && open.length > 0 && (
           <section className="card-flat p-8 mb-10 bg-zinc-950 text-white">
-            <span className="label-xs text-zinc-400">Settlement · Wire to My Pay</span>
+            <span className="label-xs text-zinc-400">Settlement · Wire to Athanni</span>
             <div className="serif text-2xl mt-2 mb-6">Bank details for NEFT / RTGS / IMPS</div>
             <div className="grid md:grid-cols-2 gap-x-12 gap-y-3">
               {[
@@ -240,7 +241,7 @@ export default function BrandPortal() {
             <div className="mono text-xs text-zinc-500 mt-1">{money(confirming.deal_amount)}</div>
 
             <p className="text-sm text-zinc-600 mt-6">
-              Confirm that you've wired <strong>{money(confirming.deal_amount)}</strong> to the My Pay account.
+              Confirm that you've wired <strong>{money(confirming.deal_amount)}</strong> to the Athanni account.
               Enter your bank reference (UTR number) below — we'll verify and mark the deal settled.
             </p>
 

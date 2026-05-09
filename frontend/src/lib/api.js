@@ -6,7 +6,7 @@ export const API = `${BACKEND_URL}/api`;
 export const api = axios.create({ baseURL: API });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("mypay_token");
+  const token = localStorage.getItem("athanni_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

@@ -6,13 +6,19 @@
 
 :root {
   --bg: #FFFFFF;
-  --bg-soft: #FAFAFA;
-  --bg-muted: #F3F4F6;
-  --ink: #0A0A0A;
-  --ink-2: #52525B;
-  --ink-3: #A1A1AA;
-  --line: #E4E4E7;
-  --brand: #002FA7;
+  --bg-soft: #F7F8FC;
+  --bg-muted: #EDEEF5;
+  --ink: #0D1B3E;          /* Navy — primary text */
+  --ink-2: #4A5568;
+  --ink-3: #9AA5B4;
+  --line: #E2E4EC;
+  --navy: #0D1B3E;         /* Dark navy — nav, buttons */
+  --navy-hover: #060F22;
+  --accent: #2646B0;       /* Medium blue — number & label accents */
+  --brand: #0D1B3E;        /* Alias for btn-brand → navy */
+  --brand-hover: #060F22;
+  --copper: #B87333;       /* Coin copper — premium CTA, logo dot */
+  --copper-hover: #9A6020;
   --success: #16A34A;
   --warn: #EAB308;
   --danger: #DC2626;
@@ -73,6 +79,49 @@ body {
 }
 .btn-ghost:hover { background: var(--bg-muted); }
 
+.btn-brand {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 500;
+  padding: 0.7rem 1.3rem;
+  border-radius: 0;
+  transition: background 140ms ease, transform 140ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-brand:hover { background: var(--brand-hover); }
+.btn-brand:active { transform: translateY(1px); }
+.btn-brand:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-brand-ghost {
+  background: transparent;
+  color: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 0;
+  padding: 0.7rem 1.3rem;
+  font-weight: 500;
+  transition: background 140ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-brand-ghost:hover { background: var(--bg-muted); }
+
+.btn-copper {
+  background: var(--copper);
+  color: #fff;
+  font-weight: 600;
+  padding: 0.7rem 1.3rem;
+  border-radius: 0;
+  transition: background 140ms ease, transform 140ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-copper:hover { background: var(--copper-hover); }
+.btn-copper:active { transform: translateY(1px); }
+
 .input-hair {
   width: 100%;
   background: transparent;
@@ -109,6 +158,7 @@ body {
 .chip-warn { border-color: var(--warn); color: #A16207; }
 .chip-bad { border-color: var(--danger); color: var(--danger); }
 .chip-brand { border-color: var(--brand); color: var(--brand); }
+.chip-copper { border-color: var(--copper); color: #7A4A1A; }
 
 .ticker {
   font-family: 'JetBrains Mono', monospace;

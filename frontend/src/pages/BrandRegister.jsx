@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import { AthanniLogo } from "../components/AthanniLogo";
 
 const INDUSTRIES = [
   "Beauty & Wellness", "Fashion & Apparel", "Consumer Electronics",
@@ -68,7 +69,7 @@ export default function BrandRegister() {
         brand_phone:         form.brand_phone         || undefined,
         brand_billing_email: form.brand_billing_email || undefined,
       });
-      toast.success("Brand account created. Welcome to My Pay.");
+      toast.success("Brand account created. Welcome to Athanni.");
       nav("/brand-portal");
     } catch (err) {
       const msg = err?.response?.data?.detail;
@@ -83,7 +84,9 @@ export default function BrandRegister() {
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* ── Left: form ─────────────────────────────────────────────── */}
       <div className="p-8 lg:p-16 flex flex-col">
-        <Link to="/" className="serif text-3xl">My Pay</Link>
+        <Link to="/" className="flex items-center gap-2">
+          <AthanniLogo size="sm" dark={false} />
+        </Link>
 
         <div className="flex-1 flex items-center">
           <div className="w-full max-w-md">
@@ -105,7 +108,7 @@ export default function BrandRegister() {
                 <span className="label-xs">Brand Onboarding · Step 1 of 2</span>
                 <h1 className="serif text-5xl mt-3 tracking-tight">Access credentials.</h1>
                 <p className="text-zinc-500 mt-2 text-sm">
-                  You'll need a signup token from My Pay. Contact us if you don't have one.
+                  You'll need a signup token from Athanni. Contact us if you don't have one.
                 </p>
 
                 <div className="mt-8 space-y-6">
@@ -119,7 +122,7 @@ export default function BrandRegister() {
                       onChange={set("signup_token")}
                       required
                     />
-                    <p className="text-xs text-zinc-400 mt-1">Issued by the My Pay team. One-time use.</p>
+                    <p className="text-xs text-zinc-400 mt-1">Issued by the Athanni team. One-time use.</p>
                   </div>
                   <div>
                     <label className="label-xs">Contact Person's Name <span className="text-red-500">*</span></label>
@@ -223,7 +226,10 @@ export default function BrandRegister() {
           }}
         />
         <div className="relative z-10 flex flex-col h-full p-14 justify-between">
-          <div className="label-xs text-zinc-500">My Pay · Brand Portal</div>
+          <div className="flex items-center gap-3">
+            <AthanniLogo size="sm" dark={true} />
+            <div className="label-xs text-zinc-500 mt-0.5">Brand Portal</div>
+          </div>
 
           <div>
             <div className="text-4xl leading-[1.1] tracking-tight font-light mb-10" style={{ fontFamily: "'Instrument Serif', serif" }}>
@@ -233,7 +239,7 @@ export default function BrandRegister() {
             <ol className="space-y-8 max-w-sm">
               {[
                 ["Invoice visibility", "See every active deal your brand is a counterparty on."],
-                ["Simple settlement", "Wire NEFT/RTGS to My Pay once. We handle the creator."],
+                ["Simple settlement", "Wire NEFT/RTGS to Athanni once. We handle the creator."],
                 ["Single point of contact", "One account, one dashboard, all your creator partners."],
               ].map(([t, d], i) => (
                 <li key={t} className="flex gap-5 items-start">
@@ -248,7 +254,7 @@ export default function BrandRegister() {
           </div>
 
           <div className="mono text-xs text-zinc-600 border-t border-zinc-800 pt-6">
-            By registering you agree to My Pay's Brand Partner Agreement.
+            By registering you agree to Athanni's Brand Partner Agreement.
           </div>
         </div>
       </div>

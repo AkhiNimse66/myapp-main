@@ -300,7 +300,7 @@ export default function Profile() {
             <span className="label-xs">Payouts · Disbursement Account</span>
             <h2 className="serif text-3xl mt-1">Where we send your advance</h2>
             <p className="text-sm text-zinc-500 mt-1 max-w-lg">
-              When you accept a deal offer, My Pay sends the advance directly to this account. Add your UPI ID or bank account below.
+              When you accept a deal offer, Athanni sends the advance directly to this account. Add your UPI ID or bank account below.
             </p>
           </div>
           {savedPayout?.registered && (

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-seed_admin.py — One-time admin account setup for My Pay.
+seed_admin.py — One-time admin account setup for Athanni.
 
 Run once from the backend/ directory:
 
     cd ~/Desktop/myapp-main/backend
     python seed_admin.py
 
-Creates admin@mypay.io (or override via env vars below).
+Creates admin@athanni.co.in (or override via env vars below).
 Idempotent — safe to run multiple times, skips if account already exists.
 
 Override defaults with environment variables before running:
@@ -30,10 +30,10 @@ if _env_path.exists():
 
 # ── Config — override via env vars if needed ─────────────────────────────────
 MONGO_URL      = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME        = os.environ.get("DB_NAME", "mypay_dev")
-ADMIN_EMAIL    = os.environ.get("ADMIN_EMAIL", "admin@mypay.io")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "mypay-admin-2024")
-ADMIN_NAME     = os.environ.get("ADMIN_NAME", "My Pay Admin")
+DB_NAME        = os.environ.get("DB_NAME", "athanni_dev")
+ADMIN_EMAIL    = os.environ.get("ADMIN_EMAIL", "admin@athanni.co.in")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "athanni-admin-2024")
+ADMIN_NAME     = os.environ.get("ADMIN_NAME", "Athanni Admin")
 
 
 def _hash(password: str) -> str:
@@ -62,7 +62,7 @@ def main() -> None:
         print(f"❌  Could not connect to MongoDB: {exc}")
         print("    Is MongoDB running?  Start it with:")
         print("      brew services start mongodb-community")
-        print("    or: docker run -d -p 27017:27017 --name mypay-mongo mongo:7")
+        print("    or: docker run -d -p 27017:27017 --name athanni-mongo mongo:7")
         sys.exit(1)
 
     users = client[DB_NAME]["users"]

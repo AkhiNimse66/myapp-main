@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import { AthanniLogo } from "../components/AthanniLogo";
 
 export default function Register() {
   const { register } = useAuth();
@@ -26,7 +27,9 @@ export default function Register() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <div className="p-8 lg:p-16 flex flex-col">
-        <Link to="/" className="serif text-3xl">My Pay</Link>
+        <Link to="/" className="flex items-center gap-2">
+          <AthanniLogo size="sm" dark={false} />
+        </Link>
         <div className="flex-1 flex items-center">
           <form onSubmit={onSubmit} className="w-full max-w-md" data-testid="register-form">
             <span className="label-xs">Onboarding · New Creator</span>
@@ -75,8 +78,9 @@ export default function Register() {
 
         <div className="relative z-10 flex flex-col h-full p-14 justify-between">
           {/* Top: brand mark */}
-          <div>
-            <div className="label-xs text-zinc-500">My Pay · Receivables Desk</div>
+          <div className="flex items-center gap-3">
+            <AthanniLogo size="sm" dark={true} />
+            <div className="label-xs text-zinc-500 mt-0.5">Receivables Desk</div>
           </div>
 
           {/* Middle: onboarding steps */}
@@ -118,7 +122,7 @@ export default function Register() {
 
           {/* Bottom: legal note */}
           <div className="mono text-xs text-zinc-600 border-t border-zinc-800 pt-6">
-            By registering you agree to My Pay’s Master Factoring Agreement.
+            By registering you agree to Athanni’s Master Factoring Agreement.
           </div>
         </div>
       </div>

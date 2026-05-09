@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import { AthanniLogo } from "../components/AthanniLogo";
 
 export default function Login() {
   const { login } = useAuth();
@@ -27,7 +28,9 @@ export default function Login() {
 
       {/* ── Left: form ── */}
       <div className="p-8 lg:p-16 flex flex-col bg-white">
-        <Link to="/" className="serif text-3xl tracking-tight text-zinc-950">My Pay</Link>
+        <Link to="/" className="flex items-center gap-2">
+          <AthanniLogo size="sm" dark={false} />
+        </Link>
 
         <div className="flex-1 flex items-center">
           <form onSubmit={onSubmit} className="w-full max-w-md" data-testid="login-form">
@@ -73,7 +76,7 @@ export default function Login() {
             </button>
 
             <div className="mt-6 text-sm text-zinc-500">
-              New to My Pay?{" "}
+              New to Athanni?{" "}
               <Link to="/register" className="underline-ink text-zinc-950 font-medium">
                 Open an account
               </Link>
@@ -82,7 +85,7 @@ export default function Login() {
         </div>
 
         <div className="mono text-xs text-zinc-400">
-          © My Pay 2026 · AR Financing for the Creator Economy
+          © Athanni 2026 · AR Financing for the Creator Economy
         </div>
       </div>
 
@@ -99,8 +102,9 @@ export default function Login() {
 
         <div className="relative z-10 flex flex-col h-full p-14 justify-between">
           {/* Top: brand mark */}
-          <div>
-            <div className="label-xs text-zinc-500">My Pay · Receivables Desk</div>
+          <div className="flex items-center gap-3">
+            <AthanniLogo size="sm" dark={true} />
+            <div className="label-xs text-zinc-500 mt-0.5">Receivables Desk</div>
           </div>
 
           {/* Middle: pull quote */}
@@ -111,7 +115,7 @@ export default function Login() {
             >
               Stop waiting
               <br />
-              <span className="italic text-zinc-400">ninety days</span>
+              <span className="italic text-zinc-400">sixty days</span>
               <br />
               for the cheque.
             </div>

@@ -1,0 +1,264 @@
+# Athanni — Product Roadmap & Brainstorming Doc
+
+> Created: May 2026
+> This is the living product strategy document. Update it as decisions are made.
+> Read alongside CLAUDE_CONTEXT.md and PENDING_DECISIONS.md.
+
+---
+
+## Pending Brand & Product Changes
+
+### 1. Rebrand: My Pay → Athanni
+- Replace all instances of "My Pay", "mypay", "MyPay" across codebase
+- Affected: app name, JWT secret key name, DB name (`mypay_dev` → `athanni_dev`), email sender domain, frontend copy, meta tags, README
+- Simple find-and-replace, ~30 minutes of work
+- **Do this before any other UI/code changes**
+
+### 2. Domain: athanni.co.in
+- Purchase domain (GoDaddy / Namecheap — `.co.in` is inexpensive)
+- No code changes needed now — wire DNS to Railway/Render/Vercel at deployment time
+- Park the domain now, connect it when deploying
+
+### 3. UI Redesign — Premium & Professional
+- Design bones are good (Instrument Serif, no border radius, 1px borders, luxury editorial)
+- Gaps: inconsistent spacing, weak visual hierarchy, pages feel like forms not financial products
+- Strategy: redesign page-by-page as we touch them, starting with Landing + Dashboard
+- Reference: design_guidelines.json already in repo
+
+### 4. Instagram Metrics Integration
+- No official free API for arbitrary public profiles — Meta locked this down
+- **Chosen approach: Instagram Basic Display API (official, OAuth-based)**
+  - Creator authenticates with their own Instagram account
+  - We get: followers, posts, engagement rate, account age
+  - Requires: approved Meta App (1–2 week approval process)
+  - This is the only defensible approach for a lending product
+- Alternative considered: third-party scraping APIs (HikerAPI etc.) — rejected, violates ToS, risky for fintech
+- Also needed: YouTube Data API (free, Google) for YouTube creators
+
+---
+
+## Full End-to-End Deal Walkthrough
+
+### Hypothetical: Priya (creator, 85K Instagram) + Mamaearth (brand)
+Deal: ₹2,00,000 for 3 Instagram posts, 60-day payment terms
+
+---
+
+### PHASE 1 — Creator Onboarding
+
+**Status: Partially built** (basic register only)
+
+Missing:
+- [ ] Aadhaar eKYC (OTP-based, UIDAI) — legally required
+- [ ] PAN card verification
+- [ ] Selfie / liveness check
+- [ ] Bank account verification (penny drop — send ₹1, confirm receipt)
+- [ ] IFSC lookup + account name matching
+- [ ] Platform agreement / Credit Facility Agreement (digital sign)
+
+Documents to generate:
+- [ ] **Credit Facility Agreement** — revolving credit terms, fees, default clause. Creator signs before getting a limit.
+- [ ] **KYC completion confirmation** email
+
+---
+
+### PHASE 2 — Social Connect + Credit Scoring
+
+**Status: Mock only**
+
+Missing:
+- [ ] Real Instagram OAuth + data pull (followers, engagement, authenticity)
+- [ ] YouTube Data API integration
+- [ ] Authentic engagement rate calculation (not just follower count)
+- [ ] Fake follower detection signals
+
+Documents to generate:
+- [ ] **Credit Limit Letter** — "Your Athanni credit limit is ₹4,00,000 (Growth tier)." Sent by email + shown on dashboard. A real financial document.
+
+---
+
+### PHASE 3 — Deal Submission
+
+**Status: File upload works, parsing is mock**
+
+Missing:
+- [ ] Real contract OCR (for scanned PDFs — AWS Textract or Google Vision)
+- [ ] LLM contract parsing activated (Claude API key needed — built, just needs key)
+- [ ] Key fields to extract: brand name, deal value, payment terms, payment date, deliverables, brand signatory
+- [ ] Brand verification at submission (GST check, MCA lookup)
+
+Documents creator provides:
+- [ ] Brand deal contract (PDF) — already built
+
+---
+
+### PHASE 4 — Risk Scoring + Offer Generation
+
+**Status: Fixed mock policy (80% advance, 3% fee)**
+
+Missing:
+- [ ] Real brand solvency check (GST API, MCA21, or manual admin tier assignment)
+- [ ] Dynamic risk scoring based on brand + creator signals
+- [ ] Offer letter generation (PDF)
+
+Deal math for this example:
+- Deal value: ₹2,00,000
+- Advance (80%): ₹1,60,000
+- Discount fee (3%): ₹4,800
+- **Priya receives: ₹1,55,200**
+
+Documents to generate:
+- [ ] **Advance Offer Letter / Term Sheet** — shown before Priya accepts. States: advance amount, fee, repayment date, recourse clause. Critical legal document.
+
+---
+
+### PHASE 5 — Creator Accepts the Offer
+
+**Status: Accept button exists, no legal docs, no NOA**
+
+Missing (CRITICAL):
+- [ ] **eSign on Financing Agreement** — Priya must digitally sign the deal-specific advance agreement before disbursement
+- [ ] **Notice of Assignment (NOA)** — sent to Mamaearth informing them to pay Athanni, not Priya. WITHOUT THIS, ATHANNI HAS NO LEGAL CLAIM ON THE RECEIVABLE.
+- [ ] **Invoice generation** — Athanni generates a formal invoice on Priya's behalf to Mamaearth (with GST if applicable)
+- [ ] Disbursement confirmation (currently stub)
+
+Documents to generate:
+- [ ] **Financing Agreement** (deal-specific) — Priya signs, covers this specific advance
+- [ ] **Notice of Assignment (NOA)** — sent to brand finance contact, requires acknowledgment
+- [ ] **Invoice** — generated by Athanni for Priya → Mamaearth
+- [ ] **Disbursement confirmation email** — "₹1,55,200 sent to your UPI/bank account"
+
+---
+
+### PHASE 6 — Brand Acknowledges the NOA
+
+**Status: Entirely missing**
+
+Missing:
+- [ ] NOA email delivery to brand's finance contact
+- [ ] Brand acknowledgment flow (click link or log into brand portal)
+- [ ] NOA acknowledgment stored on deal record
+- [ ] Follow-up if brand doesn't acknowledge within 48 hours
+
+Documents:
+- [ ] **NOA acknowledgment confirmation** — brand confirms in writing they'll pay Athanni
+
+---
+
+### PHASE 7 — Content Delivery + Invoice Maturity Tracking
+
+**Status: Entirely missing**
+
+Missing:
+- [ ] `payment_due_date` field on deal (derive from deal date + payment_terms_days)
+- [ ] Automated reminder emails: D-14, D-7, D-1 to both creator and brand
+- [ ] Creator content delivery confirmation (Priya marks content as delivered)
+
+Documents / communications:
+- [ ] **Payment reminder emails** to brand (D-14, D-7, D-1, D-day)
+- [ ] **Content delivery confirmation** from creator
+
+---
+
+### PHASE 8 — Brand Pays Athanni
+
+**Status: Manual UTR entry only, admin marks repaid**
+
+Missing:
+- [ ] Payment reconciliation (match incoming bank transfer to deal via UTR)
+- [ ] Auto-close deal + recycle creator credit limit on payment confirmation
+- [ ] Razorpay payment link as alternative to NEFT (brand pays online)
+
+Documents to generate:
+- [ ] **Payment receipt to brand** — "Received ₹2,00,000 for Invoice #ATH-2024-0042"
+- [ ] **Deal closure confirmation to creator** — "Mamaearth paid. Your credit limit is recycled."
+
+---
+
+### PHASE 9 — Default / Late Payment Handling
+
+**Status: Admin can click mark-default, nothing else**
+
+Missing:
+- [ ] Overdue escalation workflow (D+1, D+7, D+30 auto-emails)
+- [ ] Creator liability notification (legally required — creator is responsible under recourse)
+- [ ] Admin escalation queue
+
+Documents:
+- [ ] **Overdue notice to brand** (3 escalating templates)
+- [ ] **Creator liability notice** — "Your brand has not paid. Per your Financing Agreement, you are now responsible for repayment."
+
+---
+
+## Full API Integrations List
+
+### Must-Have Before Launch
+
+| API | Purpose | Approx. Cost |
+|-----|---------|-------------|
+| Meta / Instagram Basic Display API | Real social metrics via creator OAuth | Free (needs Meta app approval, ~1–2 weeks) |
+| YouTube Data API | YouTube creator metrics | Free (Google Cloud, generous quota) |
+| Leegality or Digio | eSign for Indian market (NOA, agreements, KYC docs) | ~₹30–50 per document signed |
+| Aadhaar eKYC (via Digilocker / Signzy / IDfy) | Creator identity verification | Paid per verification |
+| PAN verification (Surepass / Signzy / IDfy) | PAN card validity check | ~₹2–5 per call |
+| Penny drop (Razorpay / Cashfree) | Bank account ownership verification | ~₹2–5 per call |
+| GST verification (Surepass / GST official API) | Brand legitimacy check | ~₹1–3 per call |
+| RazorpayX Payouts API | Disbursement to creator (UPI / bank transfer) | 0.25% per payout |
+| Razorpay Payment Links | Brand payment collection (online alternative to NEFT) | Standard Razorpay fees |
+| Resend | Transactional email (KYC, offers, NOA, receipts) | Free: 3K/month |
+| AWS S3 / Cloudflare R2 | Contract + document storage (replace /tmp) | Near-zero at our scale |
+| Anthropic Claude API | Contract parsing (already built, needs key) | Pay per token |
+
+### Nice-to-Have
+
+| API | Purpose |
+|-----|---------|
+| MSG91 / Twilio | SMS OTP, payment reminders |
+| Interakt / Wati | WhatsApp notifications (high open rate in India) |
+| MCA21 / Signzy | Brand company registration + filing history |
+| AWS Textract / Google Vision | OCR for scanned contract PDFs |
+| CIBIL / Experian | Credit bureau check (expensive, later stage) |
+
+---
+
+## Biggest Gaps — Priority Order
+
+1. **NOA system** — legally cannot do AR financing without this. Highest priority.
+2. **eSign integration** — all agreements must be digitally signed to be enforceable
+3. **KYC** — legally required before any disbursement in India
+4. **Bank account verification** — penny drop before any payout
+5. **Real social metrics** — credit scoring is blind without real data
+6. **Document generation** — offer letters, invoices, receipts, NOA templates (all missing)
+7. **Maturity + reminder system** — no visibility on when deals are due
+8. **Brand GST / MCA verification** — brand risk scoring is 100% mock today
+
+---
+
+## Documents Athanni Needs to Generate (Full List)
+
+| Document | Trigger | Recipient | Status |
+|---------|---------|-----------|--------|
+| Credit Facility Agreement | Creator onboarding | Creator (signs) | Not built |
+| Credit Limit Letter | After social connect + scoring | Creator | Not built |
+| Advance Offer Letter / Term Sheet | After deal is scored | Creator (reviews) | Not built |
+| Financing Agreement (per deal) | Creator accepts offer | Creator (signs) | Not built |
+| Notice of Assignment (NOA) | Creator accepts offer | Brand finance contact | Not built |
+| Invoice (creator → brand) | Creator accepts offer | Brand | Not built |
+| Disbursement Confirmation | After payout sent | Creator | Not built |
+| NOA Acknowledgment | Brand confirms | Athanni records | Not built |
+| Payment Reminder Emails | D-14, D-7, D-1, D-day | Brand | Not built |
+| Payment Receipt | Brand pays | Brand | Not built |
+| Deal Closure Confirmation | Deal marked repaid | Creator | Not built |
+| Overdue Notice (3 levels) | D+1, D+7, D+30 | Brand | Not built |
+| Creator Liability Notice | D+7 overdue | Creator | Not built |
+
+---
+
+## Notes
+
+- Currency is INR throughout. money() helper already updated to ₹ formatting.
+- Primary market: Indian creators + Indian/global brands.
+- eSign provider recommendation for India: **Leegality** (most used in Indian fintech) or **Digio**.
+- KYC provider recommendation: **IDfy** or **Signzy** (both have good APIs, reasonable pricing for early stage).
+- For the NOA specifically — get a CA or fintech lawyer to draft the template once, then it's just mail merge per deal.
+- Rebrand to Athanni should happen before any of the above integration work begins.

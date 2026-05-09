@@ -265,7 +265,7 @@ async def maturity_sweep(
         # Stub: create a mock email log entry (Resend key not configured)
         await emails_repo.create(
             to=deal.get("creator_email", "creator@example.com"),
-            subject=f"[My Pay] Payment due in 7 days — {deal.get('deal_title', 'your deal')}",
+            subject=f"[Athanni] Payment due in 7 days — {deal.get('deal_title', 'your deal')}",
             body_html=f"<p>Your deal <b>{deal.get('deal_title')}</b> matures on {deal.get('maturity_date')}. "
                       f"Please ensure {deal.get('brand_name')} settles the invoice of "
                       f"${deal.get('deal_amount', 0):,.0f} by the due date.</p>",

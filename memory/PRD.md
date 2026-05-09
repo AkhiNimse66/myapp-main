@@ -1,7 +1,7 @@
 # My Pay — Product Requirement Document
 
 ## Original problem statement
-Design an invoice-discounting platform for the creator economy. Influencers face 30-90 day payment delays from brands; My Pay provides immediate liquidity (minus a discount fee) once a signed brand deal is verified. Core modules: **Brand Verification Engine**, **Risk Scoring Algorithm**, **Automated Disbursement Workflow**.
+Design an invoice-discounting platform for the creator economy. Influencers face 30-60 day payment delays from brands; My Pay provides immediate liquidity (minus a discount fee) once a signed brand deal is verified. Core modules: **Brand Verification Engine**, **Risk Scoring Algorithm**, **Automated Disbursement Workflow**.
 
 ## User personas
 1. **Creator / Influencer** — uploads brand contract, receives credit offer, accepts advance, tracks repayment.

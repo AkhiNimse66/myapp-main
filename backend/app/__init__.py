@@ -1,4 +1,4 @@
-"""My Pay — production-grade backend (modular rewrite).
+"""Athanni — production-grade backend (modular rewrite).
 
 The legacy `server.py` monolith is being incrementally replaced by:
     app.config        — pydantic-settings, fail-fast on missing secrets

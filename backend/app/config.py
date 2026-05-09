@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     JWT_EXPIRE_HOURS: int = 72
 
     # ---------- App / CORS ----------
-    APP_NAME: str = "mypay"
+    APP_NAME: str = "athanni"
     CORS_ORIGINS: str = "http://localhost:3000"
 
     # ---------- External providers (optional; mock fallbacks exist) ----------
@@ -44,16 +44,16 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: Optional[str] = None
     EMERGENT_LLM_KEY: Optional[str] = None
     RESEND_API_KEY: Optional[str] = None
-    SENDER_EMAIL: str = "notifications@mypay.io"
+    SENDER_EMAIL: str = "notifications@athanni.co.in"
 
-    # ---------- My Pay bank details (shown to brands for manual NEFT/RTGS) ----------
+    # ---------- Athanni bank details (shown to brands for manual NEFT/RTGS) ----------
     # Leave as XXXXX until the business account is opened.
-    MYPAY_BANK_NAME: str = "XXXXX Bank"
-    MYPAY_ACCOUNT_NAME: str = "My Pay Technologies Pvt Ltd"
-    MYPAY_ACCOUNT_NUMBER: str = "XXXXXXXXXXXX"
-    MYPAY_IFSC: str = "XXXX0000000"
-    MYPAY_ACCOUNT_TYPE: str = "Current"
-    MYPAY_UPI_ID: str = "mypay@XXXXX"
+    ATHANNI_BANK_NAME: str = "XXXXX Bank"
+    ATHANNI_ACCOUNT_NAME: str = "Athanni Technologies Pvt Ltd"
+    ATHANNI_ACCOUNT_NUMBER: str = "XXXXXXXXXXXX"
+    ATHANNI_IFSC: str = "XXXX0000000"
+    ATHANNI_ACCOUNT_TYPE: str = "Current"
+    ATHANNI_UPI_ID: str = "athanni@XXXXX"
 
     # ---------- Creator payout service ----------
     # PAYOUT_MODE=mock    → instant synthetic payout (default, no keys needed)

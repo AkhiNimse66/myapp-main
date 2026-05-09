@@ -38,7 +38,7 @@ export default function DealDetail() {
     ]);
     setBrand(b.data);
     setSocial(s.data);
-    // Load My Pay bank details when deal is disbursed (brand needs to pay)
+    // Load Athanni bank details when deal is disbursed (brand needs to pay)
     if (["disbursed", "awaiting_payment"].includes(r.data.status)) {
       api.get(`/deals/bank-details`).then(bd => setBankDetails(bd.data)).catch(() => {});
     }
@@ -123,7 +123,7 @@ export default function DealDetail() {
     setConfirmingPayment(true);
     try {
       await api.post(`/deals/${id}/brand-confirm-payment`, { utr_number: utrNumber });
-      toast.success("Payment confirmed. My Pay team will verify and mark as repaid.");
+      toast.success("Payment confirmed. Athanni team will verify and mark as repaid.");
       setUtrNumber("");
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Confirmation failed"); }
@@ -263,7 +263,7 @@ export default function DealDetail() {
               <div>
                 <div className="label-xs">Brand pays</div>
                 <div className="serif text-2xl">{money(deal.deal_amount)}</div>
-                <div className="mono text-xs text-zinc-500">Net {deal.payment_terms_days} to My Pay</div>
+                <div className="mono text-xs text-zinc-500">Net {deal.payment_terms_days} to Athanni</div>
               </div>
             </div>
 
@@ -461,7 +461,7 @@ export default function DealDetail() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <span className="label-xs">Settlement · Manual Bank Transfer</span>
-              <h2 className="serif text-3xl mt-1">Pay My Pay</h2>
+              <h2 className="serif text-3xl mt-1">Pay Athanni</h2>
             </div>
             {deal.status === "awaiting_payment" && deal.brand_payment_confirmed_at ? (
               <span className="chip chip-warn">Payment confirmed — verifying receipt</span>
@@ -471,11 +471,11 @@ export default function DealDetail() {
           </div>
 
           <p className="text-sm text-zinc-600 mb-6 max-w-xl">
-            Wire the full invoice amount to My Pay&apos;s current account via NEFT, RTGS, or IMPS.
+            Wire the full invoice amount to Athanni&apos;s current account via NEFT, RTGS, or IMPS.
             Once confirmed, click the button below — our team will verify and mark the deal as repaid.
           </p>
 
-          {/* My Pay bank details */}
+          {/* Athanni bank details */}
           {bankDetails ? (
             <div className="grid md:grid-cols-2 gap-px bg-zinc-200 border hair mb-6">
               {[
@@ -532,14 +532,14 @@ export default function DealDetail() {
                 className="btn-primary"
               >
                 <Wallet className="w-4 h-4" />
-                {confirmingPayment ? "Confirming…" : `I've transferred ${money(deal.deal_amount)} to My Pay`}
+                {confirmingPayment ? "Confirming…" : `I've transferred ${money(deal.deal_amount)} to Athanni`}
               </button>
             </div>
           ) : (
             <div className="mono text-xs text-zinc-600 border-l-2 border-green-600 pl-4">
               Payment confirmed {new Date(deal.brand_payment_confirmed_at).toLocaleString()}.
               {deal.brand_payment_utr && <span> UTR: {deal.brand_payment_utr}</span>}
-              {" "}My Pay team is verifying receipt.
+              {" "}Athanni team is verifying receipt.
             </div>
           )}
         </section>
@@ -556,7 +556,7 @@ export default function DealDetail() {
             {deal.contract_file_id && (
               <a
                 data-testid="contract-download"
-                href={`${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/contracts/${deal.contract_file_id}/download?auth=${localStorage.getItem("mypay_token")}`}
+                href={`${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/contracts/${deal.contract_file_id}/download?auth=${localStorage.getItem("athanni_token")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline-ink mono text-xs"

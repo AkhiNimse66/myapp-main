@@ -1,14 +1,14 @@
-# My Pay — Complete Project Context for New Claude Sessions
+# Athanni — Complete Project Context for New Claude Sessions
 
 Read this entire file before doing anything. It is the single source of truth
 for the project state, architecture, decisions made, and what to build next.
 
 ---
 
-## What Is My Pay
+## What Is Athanni
 
 A creator financing platform — AR (Accounts Receivable) financing for
-influencers. Creators upload brand deal contracts, My Pay advances them up to
+influencers. Creators upload brand deal contracts, Athanni advances them up to
 80% of the deal value instantly, and collects from the brand when the invoice
 matures. Similar to invoice discounting / factoring but for the creator economy.
 
@@ -17,7 +17,7 @@ matures. Similar to invoice discounting / factoring but for the creator economy.
 2. Creator uploads a brand deal contract (PDF/image)
 3. System scores the deal (brand solvency + creator health → risk score)
 4. Creator accepts the offer → receives advance (minus discount fee) instantly
-5. Brand pays My Pay on maturity → creator's credit limit is recycled
+5. Brand pays Athanni on maturity → creator's credit limit is recycled
 
 **Primary market:** Indian creators + Indian/global brands (INR transactions)
 
@@ -124,11 +124,11 @@ myapp-main/
 
 ```
 MONGO_URL=mongodb://localhost:27017
-DB_NAME=mypay_dev
-JWT_SECRET=mypay-super-secret-key-change-in-production-32c
+DB_NAME=athanni_dev
+JWT_SECRET=athanni-super-secret-key-change-in-production-32c
 JWT_ALGO=HS256
 JWT_EXPIRE_HOURS=72
-APP_NAME=mypay
+APP_NAME=athanni
 CORS_ORIGINS=http://localhost:3000
 CREATOR_INTEL_MODE=mock
 BRAND_INTEL_MODE=mock
@@ -137,7 +137,7 @@ RISK_POLICY=fixed_mvp
 ENGINE_VERSION=1.0.0
 STRIPE_API_KEY=
 RESEND_API_KEY=
-SENDER_EMAIL=notifications@mypay.io
+SENDER_EMAIL=notifications@athanni.co.in
 ```
 
 ---
@@ -177,7 +177,7 @@ Initial limit on registration: ₹50,000 (starter).
 ### Authentication flow
 - POST /api/auth/register → returns `{ access_token, user_id, role, name }`
 - POST /api/auth/login → same shape
-- Token stored in `localStorage` as `mypay_token`
+- Token stored in `localStorage` as `athanni_token`
 - GET /api/auth/me → returns full user + role profile
 - Frontend: `AuthContext.js` calls /login then /me, stores token, sets user state
 
@@ -203,7 +203,7 @@ The only env var needed: `VITE_BACKEND_URL=http://localhost:8000`
 - GET  /api/deals
 - POST /api/deals
 - GET  /api/deals/{id}
-- GET  /api/deals/bank-details        (My Pay's bank account for NEFT/RTGS from brand)
+- GET  /api/deals/bank-details        (Athanni's bank account for NEFT/RTGS from brand)
 - POST /api/deals/{id}/analyze        (runs risk engine + contract parser)
 - POST /api/deals/{id}/advance        (creator accepts → disburse → payout to creator)
 - POST /api/deals/{id}/repay-checkout (stub → Razorpay gateway when key arrives)
@@ -304,12 +304,12 @@ The only env var needed: `VITE_BACKEND_URL=http://localhost:8000`
       - vite.config.js: plain react(), resolve.extensions [.jsx before .js], optimizeDeps loader
 - [x] INR currency formatting — money() now returns ₹ with en-IN locale; moneyCompact() added
 - [x] Payment architecture (two flows):
-      - Brand → My Pay: manual bank transfer (NEFT/RTGS/IMPS). Brand sees My Pay account details
+      - Brand → Athanni: manual bank transfer (NEFT/RTGS/IMPS). Brand sees Athanni account details
         in DealDetail, clicks "I've transferred ₹X", enters UTR, deal moves to awaiting_payment.
         Admin marks repaid. Bank details are XXXXX placeholders in .env — update when account opens.
         New endpoint: POST /api/deals/{id}/brand-confirm-payment
         New endpoint: GET /api/deals/bank-details
-      - My Pay → Creator: Payout service `backend/app/services/payout_service.py`.
+      - Athanni → Creator: Payout service `backend/app/services/payout_service.py`.
         PAYOUT_MODE=mock (instant synthetic) or razorpay (RazorpayX Payouts API).
         Creator registers UPI ID or bank account on Profile page → stored as payout_method on creator doc.
         On advance accept, payout initiates automatically; payout result stored on deal.payout.
@@ -327,7 +327,7 @@ The only env var needed: `VITE_BACKEND_URL=http://localhost:8000`
 
 - [x] Admin seed script — `backend/seed_admin.py`
       Run once: `cd backend && python seed_admin.py`
-      Creates admin@mypay.io (or override via ADMIN_EMAIL/ADMIN_PASSWORD env vars). Idempotent.
+      Creates admin@athanni.co.in (or override via ADMIN_EMAIL/ADMIN_PASSWORD env vars). Idempotent.
       After running, log in at /login — routes to /admin automatically.
 - [x] Admin Brands tab — full brand management in AdminPanel.jsx
       - Token generation form (brand name + notes → one-time UUID token)
@@ -352,7 +352,7 @@ The only env var needed: `VITE_BACKEND_URL=http://localhost:8000`
       Protected component accepts role= prop or legacy adminOnly=.
 - [x] Brand portal — `frontend/src/pages/BrandPortal.jsx` at `/brand-portal`
       - Summary stats: open invoices, outstanding amount, total deals
-      - My Pay bank details card (NEFT/RTGS wire info, dark panel)
+      - Athanni bank details card (NEFT/RTGS wire info, dark panel)
       - Open invoices table with "Confirm payment" button → UTR modal
       - Settled deals history table
       - Standalone layout (no AppShell — brand has its own header with logout)
@@ -406,7 +406,7 @@ If you have a PDF contract (not just pasted text), the next step is OCR:
 ```bash
 # Terminal 1 — MongoDB
 brew services start mongodb-community
-# or: docker run -d -p 27017:27017 --name mypay-mongo mongo:7
+# or: docker run -d -p 27017:27017 --name athanni-mongo mongo:7
 
 # Terminal 2 — Backend
 cd ~/Desktop/myapp-main/backend

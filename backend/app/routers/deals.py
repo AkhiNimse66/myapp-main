@@ -428,7 +428,7 @@ async def repay_checkout(
 
 # ---------------------------------------------------------------------------
 # POST /api/deals/{deal_id}/brand-confirm-payment
-# Brand manually confirms they have initiated NEFT/RTGS transfer to My Pay.
+# Brand manually confirms they have initiated NEFT/RTGS transfer to Athanni.
 # ---------------------------------------------------------------------------
 
 @router.post("/{deal_id}/brand-confirm-payment")
@@ -438,7 +438,7 @@ async def brand_confirm_payment(
     current_user: dict = Depends(get_current_user),
     db=Depends(get_db),
 ):
-    """Brand clicks 'I've sent the payment' after wiring NEFT/RTGS to My Pay.
+    """Brand clicks 'I've sent the payment' after wiring NEFT/RTGS to Athanni.
 
     Moves deal from disbursed → awaiting_payment.
     Admin will verify bank receipt and mark as repaid.
@@ -477,33 +477,33 @@ async def brand_confirm_payment(
     )
 
     return {
-        "message": "Payment confirmation received. My Pay team will verify and mark as repaid.",
+        "message": "Payment confirmation received. Athanni team will verify and mark as repaid.",
         "deal_id": deal_id,
         "utr": utr or None,
     }
 
 
 # ---------------------------------------------------------------------------
-# GET /api/payments/bank-details
-# Returns My Pay's bank details for brand to initiate NEFT/RTGS transfer.
+# GET /api/deals/bank-details
+# Returns Athanni's bank details for brand to initiate NEFT/RTGS transfer.
 # ---------------------------------------------------------------------------
 
 @router.get("/bank-details")
 async def get_bank_details(
     current_user: dict = Depends(get_current_user),
 ):
-    """Returns My Pay's bank account details for NEFT/RTGS from brand.
+    """Returns Athanni's bank account details for NEFT/RTGS from brand.
 
     These values come from config.py — update .env when the account is opened.
     """
     settings = get_settings()
     return {
-        "bank_name": settings.MYPAY_BANK_NAME,
-        "account_name": settings.MYPAY_ACCOUNT_NAME,
-        "account_number": settings.MYPAY_ACCOUNT_NUMBER,
-        "ifsc": settings.MYPAY_IFSC,
-        "account_type": settings.MYPAY_ACCOUNT_TYPE,
-        "upi_id": settings.MYPAY_UPI_ID,
+        "bank_name": settings.ATHANNI_BANK_NAME,
+        "account_name": settings.ATHANNI_ACCOUNT_NAME,
+        "account_number": settings.ATHANNI_ACCOUNT_NUMBER,
+        "ifsc": settings.ATHANNI_IFSC,
+        "account_type": settings.ATHANNI_ACCOUNT_TYPE,
+        "upi_id": settings.ATHANNI_UPI_ID,
         "note": "Please include Deal ID in the payment reference/narration.",
     }
 

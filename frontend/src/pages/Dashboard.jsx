@@ -18,7 +18,7 @@ export default function Dashboard() {
         const status = err?.response?.status;
         if (status === 401 || status === 403) {
           // Stale token — clear it and bounce to login
-          localStorage.removeItem("mypay_token");
+          localStorage.removeItem("athanni_token");
           window.location.href = "/login";
         } else {
           setError(err?.response?.data?.detail || "Failed to load dashboard.");
@@ -52,7 +52,7 @@ export default function Dashboard() {
           <span className="label-xs">Creator Desk / Overview</span>
           <h1 className="serif text-5xl tracking-tight mt-2">Your credit line.</h1>
         </div>
-        <Link data-testid="new-deal-cta" to="/deals/new" className="btn-primary">
+        <Link data-testid="new-deal-cta" to="/deals/new" className="btn-brand">
           New Deal <ArrowUpRight className="w-4 h-4" />
         </Link>
       </div>
@@ -62,13 +62,12 @@ export default function Dashboard() {
         {/* Credit limit */}
         <div className="bg-white p-8">
           <div className="label-xs">Revolving Credit Limit</div>
-          <div className="serif text-5xl tracking-tight mt-3" data-testid="credit-limit">
+          <div className="serif text-5xl tracking-tight mt-3" data-testid="credit-limit" style={{ color: "#2646B0" }}>
             {money(summary.credit_limit)}
           </div>
           <div className="mono text-xs text-zinc-400 mt-1">{summary.credit_tier}</div>
           <div className="mt-4 h-0.5 bg-zinc-100">
-            <div className="h-0.5 bg-zinc-950 transition-all"
-                 style={{ width: `${Math.min(100, summary.used_pct || 0)}%` }} />
+            <div className="h-0.5 transition-all" style={{ background: "#2646B0", width: `${Math.min(100, summary.used_pct || 0)}%` }} />
           </div>
           <div className="flex justify-between mt-2 mono text-xs text-zinc-500">
             <span>Used {pct(summary.used_pct)}</span>
@@ -99,7 +98,7 @@ export default function Dashboard() {
         {/* Creator health */}
         <div className="bg-white p-8">
           <div className="label-xs">Creator Health Index</div>
-          <div className="serif text-5xl mt-3" data-testid="creator-health-score">
+          <div className="serif text-5xl mt-3" data-testid="creator-health-score" style={{ color: "#2646B0" }}>
             {Number(ch.health_score || 0).toFixed(1)}
           </div>
           <div className="grid grid-cols-3 gap-3 mt-4">
@@ -186,10 +185,14 @@ function TierProgression({ summary }) {
           <div key={tier.key} className="flex items-stretch gap-4">
             {/* Spine */}
             <div className="flex flex-col items-center w-5 shrink-0">
-              <div className={`w-4 h-4 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center
-                ${tier.active ? "bg-zinc-950 border-zinc-950"
-                  : tier.achieved ? "bg-zinc-300 border-zinc-300"
-                  : "bg-white border-zinc-200"}`}>
+              <div
+                className="w-4 h-4 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center"
+                style={tier.active
+                  ? { background: "#0D1B3E", borderColor: "#0D1B3E" }
+                  : tier.achieved
+                  ? { background: "#D4D4D8", borderColor: "#D4D4D8" }
+                  : { background: "#fff", borderColor: "#E4E4E7" }}
+              >
                 {tier.active && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
               </div>
               {i < tierPath.length - 1 && (
@@ -228,8 +231,8 @@ function TierProgression({ summary }) {
           </div>
           <div className="h-1 bg-zinc-100">
             <div
-              className="h-1 bg-zinc-950 transition-all"
-              style={{ width: `${nextTier.progress_pct || 0}%` }}
+              className="h-1 transition-all"
+              style={{ background: "#2646B0", width: `${nextTier.progress_pct || 0}%` }}
             />
           </div>
 
@@ -313,8 +316,11 @@ function DealPipeline({ pipeline = {} }) {
               </div>
               <div className="h-0.5 bg-zinc-100">
                 <div
-                  className={`h-0.5 transition-all ${hasDeals ? "bg-zinc-950" : "bg-zinc-100"}`}
-                  style={{ width: hasDeals ? `${widthPct}%` : "0%" }}
+                  className="h-0.5 transition-all"
+                  style={{
+                    background: hasDeals ? "#2646B0" : "transparent",
+                    width: hasDeals ? `${widthPct}%` : "0%",
+                  }}
                 />
               </div>
             </div>
@@ -372,7 +378,7 @@ function SocialIntelligenceCard({ health }) {
           ) : (
             <span className="chip chip-warn">Manual · Connect Phyllo for live data</span>
           )}
-          <Link to="/profile" className="btn-ghost text-xs px-3 py-2">
+          <Link to="/profile" className={connected ? "btn-ghost text-xs px-3 py-2" : "btn-brand text-xs px-3 py-2"}>
             {connected ? "View sync" : "Connect accounts →"}
           </Link>
         </div>

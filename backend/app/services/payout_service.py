@@ -1,4 +1,4 @@
-"""Creator payout service — sends advance funds from My Pay to the creator.
+"""Creator payout service — sends advance funds from Athanni to the creator.
 
 Modes (PAYOUT_MODE in .env):
   mock     — instant synthetic success, no API calls (default for dev)
@@ -145,7 +145,7 @@ async def _razorpay_payout(
         "purpose": "payout",
         "queue_if_low_balance": True,
         "reference_id": deal_id,
-        "narration": f"MyPay advance {deal_id[:8]}",
+        "narration": f"Athanni advance {deal_id[:8]}",
     }
     payout = client.payout.create(payout_data)
 

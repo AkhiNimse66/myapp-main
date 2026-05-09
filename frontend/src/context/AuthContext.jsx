@@ -9,17 +9,17 @@ export function AuthProvider({ children }) {
 
   // On mount — restore session from stored token
   useEffect(() => {
-    const token = localStorage.getItem("mypay_token");
+    const token = localStorage.getItem("athanni_token");
     if (!token) { setLoading(false); return; }
     api.get("/auth/me")
       .then(r => setUser(r.data))
-      .catch(() => localStorage.removeItem("mypay_token"))
+      .catch(() => localStorage.removeItem("athanni_token"))
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (email, password) => {
     const r = await api.post("/auth/login", { email, password });
-    localStorage.setItem("mypay_token", r.data.access_token);
+    localStorage.setItem("athanni_token", r.data.access_token);
     const me = await api.get("/auth/me");
     setUser(me.data);
     return me.data;
@@ -47,14 +47,14 @@ export function AuthProvider({ children }) {
     // Strip undefined keys so Pydantic doesn't see null for required brand fields
     Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
     const r = await api.post("/auth/register", body);
-    localStorage.setItem("mypay_token", r.data.access_token);
+    localStorage.setItem("athanni_token", r.data.access_token);
     const me = await api.get("/auth/me");
     setUser(me.data);
     return me.data;
   };
 
   const logout = () => {
-    localStorage.removeItem("mypay_token");
+    localStorage.removeItem("athanni_token");
     setUser(null);
   };
 
