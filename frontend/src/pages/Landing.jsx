@@ -51,7 +51,7 @@ export default function Landing() {
             <h1 className="serif text-5xl md:text-6xl lg:text-[68px] leading-[0.95] tracking-tight mt-4" style={{ color: NAVY }}>
               Get paid today.
               <br />
-              <span className="italic" style={{ color: BLUE }}>Not in 24 hours.</span>
+              <span className="italic" style={{ color: BLUE }}>Not in 90 days.</span>
             </h1>
             <p className="mt-7 text-lg text-zinc-500 max-w-lg leading-relaxed">
               Upload your brand deal contract. We verify, score, and wire up to{" "}

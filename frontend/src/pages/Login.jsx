@@ -128,7 +128,7 @@ export default function Login() {
             >
               Stop waiting
               <br />
-              <span className="italic text-zinc-400">24 hours</span>
+              <span className="italic text-zinc-400">90 days</span>
               <br />
               for the wire.
             </div>
@@ -143,7 +143,7 @@ export default function Login() {
           <div className="grid grid-cols-3 gap-px bg-zinc-800 border border-zinc-800">
             {[
               { k: "90%", v: "Max advance" },
-              { k: "< 4 hr", v: "Median wire" },
+              { k: "24 hr", v: "Median wire" },
               { k: "2.5%", v: "Floor fee" },
             ].map((s) => (
               <div key={s.v} className="bg-zinc-950 p-5">
