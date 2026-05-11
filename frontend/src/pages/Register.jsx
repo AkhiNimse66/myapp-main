@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import { AthanniLogo } from "../components/AthanniLogo";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
   const { register } = useAuth();
   const nav = useNavigate();
   const [form, setForm] = useState({ full_name: "", email: "", password: "", handle: "" });
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -51,7 +53,27 @@ export default function Register() {
               </div>
               <div>
                 <label className="label-xs">Password</label>
-                <input data-testid="register-password" type="password" name="password" value={form.password} onChange={onChange} minLength={6} className="input-hair mt-1" required />
+                <div className="relative mt-1">
+                  <input
+                    data-testid="register-password"
+                    type={showPw ? "text" : "password"}
+                    name="password"
+                    value={form.password}
+                    onChange={onChange}
+                    minLength={6}
+                    className="input-hair w-full pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors"
+                    tabIndex={-1}
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
 

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import { AthanniLogo } from "../components/AthanniLogo";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
@@ -10,6 +11,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -55,14 +57,25 @@ export default function Login() {
               </div>
               <div>
                 <label className="label-xs">Password</label>
-                <input
-                  data-testid="login-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input-hair mt-1"
-                  required
-                />
+                <div className="relative mt-1">
+                  <input
+                    data-testid="login-password"
+                    type={showPw ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input-hair w-full pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors"
+                    tabIndex={-1}
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -115,22 +128,22 @@ export default function Login() {
             >
               Stop waiting
               <br />
-              <span className="italic text-zinc-400">sixty days</span>
+              <span className="italic text-zinc-400">24 hours</span>
               <br />
-              for the cheque.
+              for the wire.
             </div>
             <p className="text-zinc-400 text-sm leading-relaxed max-w-xs">
               Upload a signed brand deal, we verify the counterparty and wire you
-              up to <span className="text-white font-medium mono">95%</span> of the
-              invoice — in minutes.
+              up to <span className="text-white font-medium mono">90%</span> of the
+              invoice — within 24 hours.
             </p>
           </div>
 
           {/* Bottom: live stats grid */}
           <div className="grid grid-cols-3 gap-px bg-zinc-800 border border-zinc-800">
             {[
-              { k: "95%", v: "Max advance" },
-              { k: "4 hr", v: "Median wire" },
+              { k: "90%", v: "Max advance" },
+              { k: "< 4 hr", v: "Median wire" },
               { k: "2.5%", v: "Floor fee" },
             ].map((s) => (
               <div key={s.v} className="bg-zinc-950 p-5">
