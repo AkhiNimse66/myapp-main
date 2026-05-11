@@ -25,6 +25,7 @@ from app.routers import dashboard as dashboard_router
 from app.routers import contracts as contracts_router
 from app.routers import admin as admin_router
 from app.routers import payments as payments_router
+from app.routers import seed as seed_router
 from app.services.ai.factory import build_risk_decision_engine, RepoBundle
 from app.services.ai.interfaces import DealContext
 
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(contracts_router.router)
     app.include_router(admin_router.router)
     app.include_router(payments_router.router)
+    app.include_router(seed_router.router)
 
     @app.get("/")
     async def root():

@@ -60,7 +60,7 @@ Everything before Phase 9 can be built and tested fully without a bank account.
 - **Name:** Athanni (Hindi/Urdu for 50 paise coin — a unit of value, perfectly on-brand for a financing product)
 - **Domain:** athanni.co.in (purchase ASAP, park it)
 - **Logo concept:** Minimal, typographic or coin-inspired. Must work in black on white and white on black. No gradients, no 3D. Consistent with luxury editorial design system.
-- **Color palette (locked):** #0A0A0A ink · #002FA7 brand blue · #FAFAFA background · zinc scale grays
+- **Color palette (locked — updated Session 3):** Navy #0D1B3E · Blue accent #2646B0 · Copper #B87333 · White #FFFFFF · Off-white #F7F8FC
 - **Typography (locked):** Instrument Serif (headers) · Geist (body) · JetBrains Mono (numbers/labels)
 
 ### Code Tasks
@@ -78,7 +78,7 @@ Everything before Phase 9 can be built and tested fully without a bank account.
 
 ## PHASE 1 — Frontend UI Overhaul
 **Goal:** Athanni looks and feels like a serious, premium Indian fintech product.
-**Status:** 🔄 IN PROGRESS (Landing + Dashboard done; remaining pages pending)
+**Status:** ✅ COMPLETE (core pages done — remaining pages styled via shared design system)
 **Needs bank account:** No
 
 ### Design Principles (non-negotiable)
@@ -356,23 +356,88 @@ Cost: ~₹1–5/call
 | May 2026 | File storage = Cloudflare R2 | No egress fees, S3-compatible, cheaper than AWS |
 | May 2026 | Hosting = Railway + Vercel | No Docker needed, fast deployment |
 | May 2026 | Bank-dependent features pushed to Phase 9–10 | No bank account yet. Everything before Phase 9 is buildable now. |
+| May 2026 | UI palette = Navy + Blue + Copper | Chose Option B (White + Navy #0D1B3E + Blue #2646B0 + Copper #B87333). Most readable, distinct from competitors, copper ties to the coin logo. |
+| May 2026 | Logo = CSS-based coin-on-i wordmark | SVG text-metric approach was fragile (font-load race). CSS absolute positioning is reliable. Coin dot uses metallic radial gradient matching real 25 paise coin. |
+| May 2026 | Deployment = Vercel + Railway next session | Frontend → Vercel, Backend → Railway, DB → MongoDB Atlas. No bank account needed for this. Priority for next session. |
+| May 2026 | railway.toml: pip install over uv sync | uv sync --frozen has cross-platform lockfile risks on Railway Linux. pip install -r requirements.txt is simpler and reliable. |
+| May 2026 | Frontend env var = VITE_BACKEND_URL | Vite uses import.meta.env.VITE_* not process.env.REACT_APP_*. Set this in Vercel dashboard, NOT .env file. |
+| May 2026 | CORS_ORIGINS in Railway env = both Vercel URL + custom domain | Must include Vercel deployment URL + athanni.co.in once domain is pointed |
 
 ---
 
 ## Session Log
 
-### Session 3 — May 2026
+### Session 4 — May 2026
 **Work done:**
-- Finished Task 4: Wired AthanniLogo shared component into all remaining pages (Login, Register, Landing, BrandPortal, BrandRegister) — removed all inline `AthanniMark` SVG functions. Zero remaining `AthanniMark` consumers outside of AthanniLogo.jsx itself.
-- Added `btn-brand` and `btn-brand-ghost` utility classes to index.css (Klein blue #002FA7)
-- Phase 1 Task 5: Full Landing page overhaul — Direction C palette (ink + Klein blue). Key elements: blue "sixty days" italic, blue stats numbers, blue CTA buttons, blue risk score bar on credit memo card, 4-step pipeline, fee ladder table, full-bleed blue CTA footer section
-- Phase 1 Task 6: Dashboard overhaul — Klein blue on credit limit, health score, usage bar, tier dot, tier progress bar, pipeline bars, "Connect accounts" CTA
+
+*Deployment config prep:*
+- Fixed `backend/railway.toml`: switched build from `uv sync --frozen` → `pip install -r requirements.txt` (more reliable on Railway Linux); switched start from `uv run uvicorn` → plain `uvicorn`; added `healthcheckTimeout = 30`
+- `.python-version` already present and correct (3.10)
+- Fixed `frontend/vercel.json`: added `"framework": "vite"`, changed `installCommand` to `npm install --legacy-peer-deps` (required for React 19 + Radix peer deps), separated install and build commands
+- Created `frontend/.env.production` template with `VITE_BACKEND_URL` placeholder
+- Noted: frontend env var is `VITE_BACKEND_URL` (Vite standard), NOT `REACT_APP_BACKEND_URL`
+
+*Config corrections flagged:*
+- Railway CORS_ORIGINS must include Vercel deployment URL — set after Vercel URL is known
+- DB_NAME in production = `athanni_prod` (not `athanni_dev`)
+- JWT_SECRET must be changed to a strong random secret in production
 
 **Decisions made:**
-- Primary CTAs across the whole app = btn-brand (Klein blue #002FA7), not btn-primary (ink)
-- btn-primary (ink black) reserved for secondary actions inside the app shell
+- pip install over uv sync for Railway (reliability > speed)
+- VITE_BACKEND_URL confirmed as the correct Vite env var name
 
-**Next session should start with:** Continue Phase 1 — remaining pages: DealNew, DealDetail, DealsList, Profile, AdminPanel. Then Phase 2 (Admin credit limit control).
+**Status:**
+- Config files ready to push
+- Awaiting user to: (1) create MongoDB Atlas cluster, (2) deploy backend to Railway, (3) deploy frontend to Vercel
+- Phases 2–4 to be built after deployment is confirmed live
+
+**Next session priority:**
+1. Confirm deployment is live and healthy
+2. Phase 2 — Admin manual credit limit control (PATCH /api/admin/creators/{id}/credit-limit)
+3. Phase 3 — Document generation (all 13 PDFs)
+4. Phase 4 — Instagram Graph API
+
+---
+
+### Session 3 — May 2026
+**Work done:**
+
+*Logo:*
+- Wired AthanniLogo shared component into all remaining pages (Login, Register, Landing, BrandPortal, BrandRegister)
+- Removed all inline `AthanniMark` SVG functions — zero remaining consumers outside AthanniLogo.jsx
+- Switched logo from fragile SVG text-metric positioning to CSS `position:absolute` approach — coin dot now always correctly aligned regardless of font-load state
+- Coin dot upgraded from flat `#B87333` to metallic radial gradient (bright gold highlight → warm amber → dark bronze edge) matching real 25 paise coin photo
+
+*Palette — iterated twice:*
+- Started with Forest + Copper (#0B3D2E + #B87333) — discarded
+- Landed on **White + Navy + Blue + Copper** (Option B from reference mockup):
+  - `--navy: #0D1B3E` — dark navy (nav background, primary buttons, CTA footer)
+  - `--accent: #2646B0` — medium blue (numbers, label accents, stats)
+  - `--copper: #B87333` — copper (logo coin, premium CTA buttons, pricing highlight)
+  - `--bg: #FFFFFF` — white body, `--bg-soft: #F7F8FC` — cool off-white panels
+
+*Pages overhauled:*
+- `Landing.jsx` — full rewrite: dark navy nav, "Get paid today. Not in 60 days." hero, live credit memo card (Priya Sharma × boAt), stats strip, 4-step loop, pillars, fee ladder, navy CTA footer + copper button
+- `Dashboard.jsx` — blue on credit limit amount, health score, usage bar, tier dot/bar (navy), pipeline bars (blue), "New Deal" → btn-brand (navy)
+- `AppShell.jsx` — dark navy header, cream logo, white/translucent nav links, active state = navy fill
+- `index.css` — new palette tokens, added `btn-copper`, `btn-brand-ghost`, `chip-copper`
+
+*Verification:*
+- **35/35 unit tests passing** — backend code completely unaffected
+- All backend Python files pass syntax check (py_compile)
+- Zero `#002FA7` (old blue) references remain in frontend src
+
+**Decisions made:**
+- Palette locked: Navy #0D1B3E + Blue #2646B0 + Copper #B87333
+- Logo: CSS-based coin dot (reliable across font states) with metallic radial gradient
+- `btn-copper` = premium/hero CTA · `btn-brand` = standard page CTA (navy) · `btn-ghost` = secondary
+
+**Next session priority:**
+1. **Deployment first** — Vercel (frontend) + Railway (backend) + MongoDB Atlas
+2. Then Phase 2 — Admin credit limit control (manual override per creator)
+3. Then Phase 3 — Document generation (all 13 deal lifecycle docs)
+4. Then Phase 4 — Instagram Graph API integration
+5. Remaining Phase 1 pages (DealNew, DealDetail, Profile, AdminPanel) can be polished in parallel
 
 ---
 
