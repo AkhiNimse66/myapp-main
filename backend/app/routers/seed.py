@@ -1,12 +1,17 @@
 """
-POST /api/seed-demo?key=athanni-seed-2026
+POST /api/seed-demo?key=<SEED_KEY>
 
 One-shot demo data seeder — runs inside Railway, no external connection needed.
-Protected by a secret key query param. Safe to leave deployed (won't re-seed
-if data already exists unless ?force=true is passed).
+Protected by a secret key query param.
+
+SAFETY: ?force=true wipes ALL users, brands, deals and re-seeds from scratch.
+        This key is intentionally NOT committed to the repo — set it via the
+        SEED_KEY env var in Railway. Default fallback is only for local dev.
+        Production SEED_KEY should be changed in Railway Variables.
 """
 from __future__ import annotations
 
+import os
 import uuid
 import bcrypt
 from datetime import datetime, timezone, timedelta
@@ -19,7 +24,9 @@ from app.db import get_db
 
 router = APIRouter(prefix="/api", tags=["seed"])
 
-SEED_KEY = "athanni-seed-2026"
+# Read from env — set a strong value in Railway Variables.
+# Default is only safe for local dev; production should override this.
+SEED_KEY = os.environ.get("SEED_KEY", "athanni-seed-2026")
 
 
 def _now(offset_days: int = 0) -> str:
@@ -37,13 +44,22 @@ def _hash(plain: str) -> str:
 @router.post("/seed-demo")
 async def seed_demo(
     key: str = Query(..., description="Seed secret key"),
-    force: bool = Query(False, description="Re-seed even if data exists"),
+    force: bool = Query(False, description="Re-seed even if data exists — requires confirm_wipe=yes"),
+    confirm_wipe: str = Query("", description="Must be 'yes' when force=true, prevents accidental wipes"),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """Seed demo users, brands, deals into the live database."""
 
     if key != SEED_KEY:
         raise HTTPException(status_code=403, detail="Invalid seed key.")
+
+    # Safety guard: force wipe requires explicit confirmation param
+    if force and confirm_wipe != "yes":
+        raise HTTPException(
+            status_code=400,
+            detail="force=true requires confirm_wipe=yes to prevent accidental data loss. "
+                   "Add &confirm_wipe=yes only if you intend to wipe all production data."
+        )
 
     # ── Idempotency check ─────────────────────────────────────────────────────
     existing = await db.users.find_one({"email": "admin@athanni.co.in"})

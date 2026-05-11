@@ -599,3 +599,158 @@ async def admin_set_credit_limit(
         "set_at":       now,
         "notes":        notes,
     }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# User management — admin master control
+# ──────────────────────────────────────────────────────────────────────
+
+VALID_ROLES = {"admin", "creator", "brand", "agency"}
+VALID_STATUSES = {"active", "suspended"}
+
+
+@router.get("/api/admin/users")
+async def admin_list_users(
+    role: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(200, le=500),
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """List all users across all roles. Returns safe fields only (no password hashes)."""
+    query = {}
+    if role:
+        query["role"] = role
+
+    users = await db.users.find(
+        query,
+        {"_id": 0, "password_hash": 0},
+    ).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
+
+    deals_repo = DealsRepo(db)
+    creators_repo = CreatorsRepo(db)
+
+    enriched = []
+    for u in users:
+        extra = {}
+        if u.get("role") == "creator":
+            creator = await creators_repo.find_by_user_id(u["id"])
+            if creator:
+                extra["credit_limit"] = creator.get("credit_limit", 0)
+                extra["credit_tier"]  = creator.get("credit_tier", "Starter")
+                extra["deal_count"]   = await deals_repo.count({"creator_id": creator["id"]})
+        enriched.append({**u, **extra})
+
+    return enriched
+
+
+@router.patch("/api/admin/users/{user_id}/role")
+async def admin_change_role(
+    user_id: str,
+    body: dict,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Change a user's role. Body: { role: 'admin'|'creator'|'brand'|'agency' }"""
+    new_role = body.get("role", "").strip().lower()
+    if new_role not in VALID_ROLES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
+
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found.")
+
+    # Prevent demoting the last admin
+    if user.get("role") == "admin" and new_role != "admin":
+        admin_count = await db.users.count_documents({"role": "admin"})
+        if admin_count <= 1:
+            raise HTTPException(status.HTTP_409_CONFLICT,
+                "Cannot demote the last admin account.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"role": new_role, "updated_at": now}},
+    )
+
+    # If promoting to admin, create a creator profile if one doesn't exist already
+    if new_role == "admin":
+        pass  # admin has no role-specific profile needed
+
+    return {
+        "ok":       True,
+        "user_id":  user_id,
+        "email":    user.get("email"),
+        "old_role": user.get("role"),
+        "new_role": new_role,
+        "changed_by": current_user.get("email"),
+        "changed_at": now,
+    }
+
+
+@router.patch("/api/admin/users/{user_id}/status")
+async def admin_change_status(
+    user_id: str,
+    body: dict,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Activate or suspend a user. Body: { status: 'active'|'suspended' }"""
+    new_status = body.get("status", "").strip().lower()
+    if new_status not in VALID_STATUSES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "status must be 'active' or 'suspended'.")
+
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found.")
+
+    if user.get("role") == "admin" and current_user["id"] != user_id:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+            "Cannot suspend another admin account.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"status": new_status, "updated_at": now}},
+    )
+    return {"ok": True, "user_id": user_id, "status": new_status}
+
+
+@router.patch("/api/admin/users/promote-by-email")
+async def admin_promote_by_email(
+    body: dict,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Promote any email to a given role. Body: { email, role }
+    Useful for initial admin setup and onboarding."""
+    email = (body.get("email") or "").strip().lower()
+    new_role = (body.get("role") or "admin").strip().lower()
+
+    if not email:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "email is required.")
+    if new_role not in VALID_ROLES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
+
+    user = await db.users.find_one({"email": email}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND,
+            f"No account found for {email}. Make sure they've registered first.")
+
+    old_role = user.get("role")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"email": email},
+        {"$set": {"role": new_role, "updated_at": now}},
+    )
+    return {
+        "ok":         True,
+        "email":      email,
+        "old_role":   old_role,
+        "new_role":   new_role,
+        "changed_by": current_user.get("email"),
+        "changed_at": now,
+    }

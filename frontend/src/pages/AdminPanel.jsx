@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api, money, pct } from "../lib/api";
 import { toast } from "sonner";
 import { StatusChip } from "./Dashboard";
-import { Activity, Brain, Mail, RefreshCw, Copy, Check, Building2, Trash2, Users, ChevronDown } from "lucide-react";
+import { Activity, Brain, Mail, RefreshCw, Copy, Check, Building2, Trash2, Users, ChevronDown, ShieldCheck, UserX, UserCheck } from "lucide-react";
 
 export default function AdminPanel() {
   const [stats, setStats] = useState(null);
@@ -27,10 +27,16 @@ export default function AdminPanel() {
   // Creators tab state
   const [creators, setCreators] = useState([]);
   const [creatorsLoading, setCreatorsLoading] = useState(false);
-  const [limitModal, setLimitModal] = useState(null);   // { creator } | null
+  const [limitModal, setLimitModal] = useState(null);
   const [limitForm, setLimitForm] = useState({ amount: "", notes: "" });
   const [savingLimit, setSavingLimit] = useState(false);
   const [expandedCreator, setExpandedCreator] = useState(null);
+
+  // Users tab state
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userRoleFilter, setUserRoleFilter] = useState("");
+  const [userSearch, setUserSearch] = useState("");
 
   const load = () => {
     api.get("/admin/stats").then(r => setStats(r.data));
@@ -53,7 +59,30 @@ export default function AdminPanel() {
       setCreatorsLoading(true);
       api.get("/admin/creators").then(r => setCreators(r.data)).catch(() => {}).finally(() => setCreatorsLoading(false));
     }
+    if (tab === "users") {
+      setUsersLoading(true);
+      api.get("/admin/users").then(r => setUsers(r.data)).catch(() => {}).finally(() => setUsersLoading(false));
+    }
   }, [tab, drift]);
+
+  const changeRole = async (user, newRole) => {
+    if (!window.confirm(`Change ${user.email} from "${user.role}" to "${newRole}"?`)) return;
+    try {
+      await api.patch(`/admin/users/${user.id}/role`, { role: newRole });
+      toast.success(`${user.email} is now ${newRole}`);
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed to change role"); }
+  };
+
+  const toggleStatus = async (user) => {
+    const newStatus = user.status === "active" ? "suspended" : "active";
+    if (!window.confirm(`${newStatus === "suspended" ? "Suspend" : "Reactivate"} ${user.email}?`)) return;
+    try {
+      await api.patch(`/admin/users/${user.id}/status`, { status: newStatus });
+      toast.success(`${user.email} is now ${newStatus}`);
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+  };
 
   const openLimitModal = (creator) => {
     setLimitModal(creator);
@@ -180,6 +209,7 @@ export default function AdminPanel() {
       <div className="flex gap-1 mt-8 border-b hair">
         {[
           { k: "portfolio", l: "Portfolio" },
+          { k: "users", l: "Users" },
           { k: "creators", l: "Creators" },
           { k: "brands", l: "Brands" },
           { k: "ml", l: "ML Ops" },
@@ -295,6 +325,125 @@ export default function AdminPanel() {
         </table>
       </div>
       </>)}
+
+      {tab === "users" && (
+        <section className="mt-10 space-y-6" data-testid="admin-users-tab">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="label-xs">Master Control · All Accounts</span>
+              <h2 className="serif text-3xl mt-1 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5" /> User management
+              </h2>
+              <div className="mono text-xs text-zinc-500 mt-1">{users.length} total accounts</div>
+            </div>
+            <button
+              onClick={() => { setUsersLoading(true); api.get("/admin/users").then(r => setUsers(r.data)).catch(() => {}).finally(() => setUsersLoading(false)); }}
+              className="btn-ghost text-sm flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${usersLoading ? "animate-spin" : ""}`} /> Refresh
+            </button>
+          </div>
+
+          {/* Filter bar */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <input
+              className="input-hair text-sm w-64"
+              placeholder="Search by name or email…"
+              value={userSearch}
+              onChange={e => setUserSearch(e.target.value)}
+            />
+            {["", "admin", "creator", "brand", "agency"].map(r => (
+              <button key={r || "all"} onClick={() => setUserRoleFilter(r)}
+                className={`chip cursor-pointer ${userRoleFilter === r ? "border-zinc-950 text-zinc-950" : "text-zinc-500"}`}>
+                {r || "all roles"}
+              </button>
+            ))}
+          </div>
+
+          {usersLoading && <div className="mono text-xs text-zinc-400 py-10 text-center">Loading users…</div>}
+
+          {!usersLoading && (
+            <div className="card-flat overflow-x-auto">
+              <table className="dense w-full">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>KYC</th>
+                    <th>Registered</th>
+                    <th>Change Role</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users
+                    .filter(u => !userRoleFilter || u.role === userRoleFilter)
+                    .filter(u => !userSearch || u.email?.toLowerCase().includes(userSearch.toLowerCase()) || u.name?.toLowerCase().includes(userSearch.toLowerCase()))
+                    .map(u => (
+                      <tr key={u.id} className="row-hover">
+                        <td className="font-medium">{u.name}</td>
+                        <td className="mono text-xs text-zinc-500">{u.email}</td>
+                        <td>
+                          <span className={`chip font-medium ${
+                            u.role === "admin"   ? "chip-copper" :
+                            u.role === "creator" ? "chip-brand"  :
+                            u.role === "brand"   ? "chip-ok"     : ""
+                          }`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`chip ${u.status === "active" ? "chip-ok" : "chip-bad"}`}>
+                            {u.status || "active"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`chip ${u.kyc_status === "verified" ? "chip-ok" : "chip-warn"}`}>
+                            {u.kyc_status || "pending"}
+                          </span>
+                        </td>
+                        <td className="mono text-xs text-zinc-500">
+                          {u.created_at ? new Date(u.created_at).toLocaleDateString("en-IN") : "—"}
+                        </td>
+                        <td>
+                          <select
+                            className="input-hair text-xs py-1 px-2 cursor-pointer"
+                            value={u.role}
+                            onChange={e => changeRole(u, e.target.value)}
+                          >
+                            <option value="creator">creator</option>
+                            <option value="admin">admin</option>
+                            <option value="brand">brand</option>
+                            <option value="agency">agency</option>
+                          </select>
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => toggleStatus(u)}
+                            className={`underline-ink mono text-xs flex items-center gap-1 ${u.status === "suspended" ? "text-green-700" : "text-red-600"}`}
+                            title={u.status === "suspended" ? "Reactivate account" : "Suspend account"}
+                          >
+                            {u.status === "suspended"
+                              ? <><UserCheck className="w-3 h-3" /> activate</>
+                              : <><UserX className="w-3 h-3" /> suspend</>
+                            }
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  }
+                  {users.filter(u => !userRoleFilter || u.role === userRoleFilter).length === 0 && (
+                    <tr><td colSpan={8} className="text-center py-10 text-zinc-400 mono text-xs">No users found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
 
       {tab === "creators" && (
         <section className="mt-10 space-y-6" data-testid="admin-creators-tab">
