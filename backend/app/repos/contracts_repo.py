@@ -1,12 +1,13 @@
 """Contracts repository — wraps the ``contract_files`` collection.
 
 Each row tracks a single uploaded contract document (PDF, image, etc.).
-Actual file bytes live in object storage (S3/GCS); ``storage_key`` is the
-reference.  Soft-delete is used so the AI audit trail remains intact even
-if a user removes the file from their view.
+MVP storage: file bytes stored as base64 in the ``file_data`` field — fully
+persistent in MongoDB Atlas, zero data loss on Railway redeploys.
+Phase 7 upgrade: replace file_data with a Cloudflare R2 presigned URL and
+clear the base64 field to save Atlas storage.
 
 Schema: id, user_id, creator_id, deal_id, filename, storage_key,
-        mime_type, size_bytes, is_deleted, uploaded_at
+        mime_type, size_bytes, file_data (base64), is_deleted, uploaded_at
 """
 from __future__ import annotations
 
@@ -62,6 +63,7 @@ class ContractsRepo(BaseRepo):
         deal_id: Optional[str] = None,
         mime_type: Optional[str] = None,
         size_bytes: Optional[int] = None,
+        file_data: Optional[str] = None,   # base64-encoded file bytes (MVP storage)
     ) -> dict:
         now = datetime.now(timezone.utc).isoformat()
         doc = {
@@ -73,6 +75,7 @@ class ContractsRepo(BaseRepo):
             "storage_key": storage_key,
             "mime_type": mime_type,
             "size_bytes": size_bytes,
+            "file_data": file_data,        # base64 string — persistent in Atlas
             "is_deleted": False,
             "uploaded_at": now,
         }

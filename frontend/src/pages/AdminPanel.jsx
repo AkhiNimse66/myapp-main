@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api, money, pct } from "../lib/api";
 import { toast } from "sonner";
 import { StatusChip } from "./Dashboard";
-import { Activity, Brain, Mail, RefreshCw, Copy, Check, Building2, Trash2 } from "lucide-react";
+import { Activity, Brain, Mail, RefreshCw, Copy, Check, Building2, Trash2, Users, ChevronDown } from "lucide-react";
 
 export default function AdminPanel() {
   const [stats, setStats] = useState(null);
@@ -24,6 +24,14 @@ export default function AdminPanel() {
   const [creatingToken, setCreatingToken] = useState(false);
   const [copiedToken, setCopiedToken] = useState(null);
 
+  // Creators tab state
+  const [creators, setCreators] = useState([]);
+  const [creatorsLoading, setCreatorsLoading] = useState(false);
+  const [limitModal, setLimitModal] = useState(null);   // { creator } | null
+  const [limitForm, setLimitForm] = useState({ amount: "", notes: "" });
+  const [savingLimit, setSavingLimit] = useState(false);
+  const [expandedCreator, setExpandedCreator] = useState(null);
+
   const load = () => {
     api.get("/admin/stats").then(r => setStats(r.data));
     api.get("/admin/deals" + (filter ? `?status=${filter}` : "")).then(r => setDeals(r.data));
@@ -41,7 +49,35 @@ export default function AdminPanel() {
       api.get("/admin/brands").then(r => setBrands(r.data)).catch(() => {});
       api.get("/admin/brand-tokens").then(r => setTokens(r.data)).catch(() => {});
     }
+    if (tab === "creators") {
+      setCreatorsLoading(true);
+      api.get("/admin/creators").then(r => setCreators(r.data)).catch(() => {}).finally(() => setCreatorsLoading(false));
+    }
   }, [tab, drift]);
+
+  const openLimitModal = (creator) => {
+    setLimitModal(creator);
+    setLimitForm({ amount: creator.credit_limit || "", notes: "" });
+  };
+
+  const submitLimit = async (e) => {
+    e.preventDefault();
+    setSavingLimit(true);
+    try {
+      await api.patch(`/admin/creators/${limitModal.id}/credit-limit`, {
+        amount: Number(limitForm.amount),
+        notes: limitForm.notes,
+      });
+      toast.success(`Credit limit set to ${money(Number(limitForm.amount))} for ${limitModal.name}`);
+      setLimitModal(null);
+      // Refresh creators list
+      api.get("/admin/creators").then(r => setCreators(r.data)).catch(() => {});
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to set limit");
+    } finally {
+      setSavingLimit(false);
+    }
+  };
 
   const createToken = async (e) => {
     e.preventDefault();
@@ -144,6 +180,7 @@ export default function AdminPanel() {
       <div className="flex gap-1 mt-8 border-b hair">
         {[
           { k: "portfolio", l: "Portfolio" },
+          { k: "creators", l: "Creators" },
           { k: "brands", l: "Brands" },
           { k: "ml", l: "ML Ops" },
           { k: "emails", l: "Notifications" },
@@ -258,6 +295,144 @@ export default function AdminPanel() {
         </table>
       </div>
       </>)}
+
+      {tab === "creators" && (
+        <section className="mt-10 space-y-6" data-testid="admin-creators-tab">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="label-xs">Creator Management · Phase 2</span>
+              <h2 className="serif text-3xl mt-1 flex items-center gap-2">
+                <Users className="w-5 h-5" /> All creators
+              </h2>
+              <div className="mono text-xs text-zinc-500 mt-1">{creators.length} registered</div>
+            </div>
+            <button
+              onClick={() => { setCreatorsLoading(true); api.get("/admin/creators").then(r => setCreators(r.data)).catch(() => {}).finally(() => setCreatorsLoading(false)); }}
+              className="btn-ghost text-sm flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${creatorsLoading ? "animate-spin" : ""}`} /> Refresh
+            </button>
+          </div>
+
+          {creatorsLoading && <div className="mono text-xs text-zinc-400 py-10 text-center">Loading creators…</div>}
+
+          {!creatorsLoading && creators.length === 0 && (
+            <div className="card-flat p-12 text-center">
+              <div className="mono text-sm text-zinc-400">No creator accounts yet.</div>
+              <div className="text-xs text-zinc-400 mt-1">Share the registration link to onboard creators.</div>
+            </div>
+          )}
+
+          {!creatorsLoading && creators.length > 0 && (
+            <div className="card-flat overflow-x-auto">
+              <table className="dense w-full">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>KYC</th>
+                    <th className="num">Credit Limit</th>
+                    <th className="num">Used</th>
+                    <th>Tier</th>
+                    <th className="num">Score</th>
+                    <th className="num">Deals</th>
+                    <th>Registered</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {creators.map(c => (
+                    <>
+                      <tr key={c.id} className="row-hover">
+                        <td>
+                          <button
+                            onClick={() => setExpandedCreator(expandedCreator === c.id ? null : c.id)}
+                            className="text-zinc-400 hover:text-zinc-800"
+                          >
+                            <ChevronDown className={`w-4 h-4 transition-transform ${expandedCreator === c.id ? "rotate-180" : ""}`} />
+                          </button>
+                        </td>
+                        <td className="font-medium">{c.name}</td>
+                        <td className="mono text-xs text-zinc-500">{c.email || "—"}</td>
+                        <td>
+                          <span className={`chip ${c.kyc_status === "verified" ? "chip-ok" : c.kyc_status === "failed" ? "chip-bad" : "chip-warn"}`}>
+                            {c.kyc_status}
+                          </span>
+                        </td>
+                        <td className="num mono text-sm font-medium" style={{ color: "var(--accent)" }}>
+                          {money(c.credit_limit)}
+                        </td>
+                        <td className="num mono text-xs text-zinc-500">{money(c.used_credit || 0)}</td>
+                        <td>
+                          <span className="chip chip-brand text-xs">{c.credit_tier || "Starter"}</span>
+                        </td>
+                        <td className="num mono text-xs">{c.creator_score ? c.creator_score.toFixed(1) : "—"}</td>
+                        <td className="num mono text-xs">{c.total_deals}</td>
+                        <td className="mono text-xs text-zinc-500">
+                          {c.registered_at ? new Date(c.registered_at).toLocaleDateString("en-IN") : "—"}
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => openLimitModal(c)}
+                            className="btn-primary text-xs px-3 py-1 whitespace-nowrap"
+                          >
+                            Set Limit
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedCreator === c.id && (
+                        <tr key={`${c.id}-expand`} className="bg-zinc-50">
+                          <td colSpan={11} className="px-8 py-5">
+                            <div className="grid md:grid-cols-4 gap-6 text-sm">
+                              <div>
+                                <div className="label-xs mb-2">Social</div>
+                                <div className="mono text-xs">{c.instagram_handle || "Not connected"}</div>
+                                <div className="text-zinc-500 text-xs mt-1">{c.followers ? c.followers.toLocaleString("en-IN") + " followers" : "—"}</div>
+                                <div className="text-zinc-500 text-xs">{c.engagement_rate ? c.engagement_rate.toFixed(1) + "% engagement" : "—"}</div>
+                              </div>
+                              <div>
+                                <div className="label-xs mb-2">Deals by status</div>
+                                {Object.entries(c.deal_counts || {}).length === 0
+                                  ? <div className="mono text-xs text-zinc-400">No deals yet</div>
+                                  : Object.entries(c.deal_counts).map(([s, n]) => (
+                                      <div key={s} className="flex justify-between items-center mono text-xs py-0.5">
+                                        <StatusChip status={s} />
+                                        <span className="ml-2 text-zinc-500">{n}</span>
+                                      </div>
+                                    ))
+                                }
+                              </div>
+                              <div>
+                                <div className="label-xs mb-2">Credit limit audit</div>
+                                {c.credit_limit_set_by ? (
+                                  <>
+                                    <div className="mono text-xs">Set by {c.credit_limit_set_by}</div>
+                                    <div className="text-zinc-500 text-xs mt-1">{c.credit_limit_set_at ? new Date(c.credit_limit_set_at).toLocaleString("en-IN") : ""}</div>
+                                    {c.credit_limit_notes && <div className="text-zinc-500 text-xs mt-1 italic">"{c.credit_limit_notes}"</div>}
+                                  </>
+                                ) : (
+                                  <div className="mono text-xs text-zinc-400">Auto-computed from social score</div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="label-xs mb-2">Payout</div>
+                                <span className={`chip ${c.payout_registered ? "chip-ok" : "chip-warn"}`}>
+                                  {c.payout_registered ? "registered" : "not set"}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
 
       {tab === "brands" && (
         <section className="mt-10 space-y-10" data-testid="admin-brands-tab">
@@ -538,6 +713,75 @@ export default function AdminPanel() {
             </table>
           </div>
         </section>
+      )}
+
+      {/* Credit Limit Modal */}
+      {limitModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setLimitModal(null)}>
+          <div className="bg-white card-flat max-w-md w-full p-8" onClick={e => e.stopPropagation()}>
+            <span className="label-xs">Admin · Credit Limit Override</span>
+            <h2 className="serif text-3xl mt-2">{limitModal.name}</h2>
+            <div className="mono text-xs text-zinc-500 mt-1">{limitModal.email}</div>
+
+            <div className="grid grid-cols-2 gap-4 mt-6 mb-6 p-4 bg-zinc-50 border hair">
+              <div>
+                <div className="label-xs">Current limit</div>
+                <div className="mono text-lg" style={{ color: "var(--accent)" }}>{money(limitModal.credit_limit)}</div>
+              </div>
+              <div>
+                <div className="label-xs">Used</div>
+                <div className="mono text-lg">{money(limitModal.used_credit || 0)}</div>
+              </div>
+              <div>
+                <div className="label-xs">Tier</div>
+                <div className="mono text-sm">{limitModal.credit_tier || "Starter"}</div>
+              </div>
+              <div>
+                <div className="label-xs">AI Score</div>
+                <div className="mono text-sm">{limitModal.creator_score ? limitModal.creator_score.toFixed(1) : "—"}</div>
+              </div>
+            </div>
+
+            <form onSubmit={submitLimit} className="space-y-5">
+              <div>
+                <label className="label-xs">New Credit Limit (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  className="input-hair mt-1"
+                  placeholder="e.g. 500000"
+                  value={limitForm.amount}
+                  onChange={e => setLimitForm({ ...limitForm, amount: e.target.value })}
+                  required
+                  autoFocus
+                />
+                <div className="mono text-xs text-zinc-400 mt-1">
+                  Quick: &nbsp;
+                  {[50000, 150000, 400000, 1000000, 2500000].map(v => (
+                    <button key={v} type="button" onClick={() => setLimitForm({ ...limitForm, amount: v })}
+                      className="underline-ink mr-3">{money(v)}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="label-xs">Notes (optional)</label>
+                <input
+                  className="input-hair mt-1"
+                  placeholder="e.g. verified Instagram metrics, 200K followers"
+                  value={limitForm.notes}
+                  onChange={e => setLimitForm({ ...limitForm, notes: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setLimitModal(null)} className="btn-ghost text-sm">Cancel</button>
+                <button type="submit" disabled={savingLimit} className="btn-primary text-sm">
+                  {savingLimit ? "Saving…" : "Set limit →"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {editing && (

@@ -2,18 +2,23 @@
 
 All endpoints require role=admin.
 
-GET  /api/admin/stats                    — portfolio aggregate stats
-GET  /api/admin/deals                    — all deals (optional ?status= filter)
-GET  /api/admin/emails                   — email log (last 200)
-POST /api/admin/maturity-sweep           — trigger maturity reminder sweep
-POST /api/admin/deals/{id}/override      — override advance_rate + discount_fee
-POST /api/admin/deals/{id}/mark-repaid   — manually settle a deal, recycle credit
-POST /api/admin/deals/{id}/mark-default  — flag a deal as defaulted (ML label)
+GET  /api/admin/stats                          — portfolio aggregate stats
+GET  /api/admin/deals                          — all deals (optional ?status= filter)
+GET  /api/admin/emails                         — email log (last 200)
+POST /api/admin/maturity-sweep                 — trigger maturity reminder sweep
+POST /api/admin/deals/{id}/override            — override advance_rate + discount_fee
+POST /api/admin/deals/{id}/mark-repaid         — manually settle a deal, recycle credit
+POST /api/admin/deals/{id}/mark-default        — flag a deal as defaulted (ML label)
+
+Phase 2 — Creator management:
+GET  /api/admin/creators                       — list all creators with limits + deal counts
+GET  /api/admin/creators/{id}                  — single creator full detail
+PATCH /api/admin/creators/{id}/credit-limit    — manually set credit limit (+ notes)
 
 ML stubs (no model yet — returns mock status):
-GET  /api/admin/ml/drift                 — drift report stub
-POST /api/admin/ml/retrain               — retrain stub
-GET  /api/ml/status                      — frontend compatibility alias
+GET  /api/admin/ml/drift                       — drift report stub
+POST /api/admin/ml/retrain                     — retrain stub
+GET  /api/ml/status                            — frontend compatibility alias
 """
 from __future__ import annotations
 
@@ -448,4 +453,149 @@ async def ml_retrain(
             "model_version": f"logistic_v1_{datetime.now(timezone.utc).strftime('%Y%m%d')}",
             "note": "Stub retrain — replace with real scikit-learn pipeline in Day 9.",
         },
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Phase 2 — Creator management (admin full control)
+# ──────────────────────────────────────────────────────────────────────
+
+@router.get("/api/admin/creators")
+async def admin_list_creators(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, le=200),
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """List all creators with their user info, credit limits, social metrics, and deal counts."""
+    creators_repo = CreatorsRepo(db)
+    deals_repo    = DealsRepo(db)
+
+    creators = await creators_repo.find_many({}, sort=[("created_at", -1)], skip=skip, limit=limit)
+
+    result = []
+    for creator in creators:
+        # Join user record for email + registration date
+        user = await db.users.find_one({"id": creator["user_id"]}, {"_id": 0, "password_hash": 0})
+
+        # Join social profile for follower/engagement data
+        social = await db.social_profiles.find_one({"creator_id": creator["id"]}, {"_id": 0, "file_data": 0})
+
+        # Count deals by status
+        all_deals = await deals_repo.find_many({"creator_id": creator["id"]}, limit=500)
+        deal_counts = {}
+        for d in all_deals:
+            s = d.get("status", "unknown")
+            deal_counts[s] = deal_counts.get(s, 0) + 1
+
+        result.append({
+            # Core identity
+            "id":             creator["id"],
+            "user_id":        creator["user_id"],
+            "name":           creator.get("name"),
+            "email":          user.get("email") if user else None,
+            "registered_at":  user.get("created_at") if user else creator.get("created_at"),
+
+            # Credit
+            "credit_limit":        creator.get("credit_limit", 50000),
+            "used_credit":         creator.get("used_credit", 0),
+            "credit_tier":         creator.get("credit_tier", "Starter"),
+            "creator_score":       creator.get("creator_score", 0),
+            "credit_limit_set_by": creator.get("credit_limit_set_by"),
+            "credit_limit_set_at": creator.get("credit_limit_set_at"),
+            "credit_limit_notes":  creator.get("credit_limit_notes"),
+
+            # KYC
+            "kyc_status":  creator.get("kyc_status", "pending"),
+
+            # Social
+            "instagram_handle": social.get("instagram_handle") if social else creator.get("instagram_handle"),
+            "followers":        social.get("followers", 0) if social else 0,
+            "engagement_rate":  social.get("engagement_rate", 0.0) if social else 0.0,
+
+            # Deals
+            "total_deals":  len(all_deals),
+            "deal_counts":  deal_counts,
+
+            # Payout
+            "payout_registered": bool(creator.get("payout_method")),
+        })
+
+    return result
+
+
+@router.get("/api/admin/creators/{creator_id}")
+async def admin_get_creator(
+    creator_id: str,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Full detail for a single creator — all fields, all deals, social profile."""
+    creators_repo = CreatorsRepo(db)
+    creator = await creators_repo.find_by_id(creator_id)
+    if not creator:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Creator not found.")
+
+    user   = await db.users.find_one({"id": creator["user_id"]}, {"_id": 0, "password_hash": 0})
+    social = await db.social_profiles.find_one({"creator_id": creator_id}, {"_id": 0})
+
+    deals_repo = DealsRepo(db)
+    deals = await deals_repo.find_many({"creator_id": creator_id}, sort=[("created_at", -1)], limit=200)
+
+    txn_repo = TransactionsRepo(db)
+    transactions = await txn_repo.find_many({"deal_id": {"$in": [d["id"] for d in deals]}}, limit=500)
+
+    return {
+        "creator":      creator,
+        "user":         user,
+        "social":       social,
+        "deals":        deals,
+        "transactions": transactions,
+    }
+
+
+@router.patch("/api/admin/creators/{creator_id}/credit-limit")
+async def admin_set_credit_limit(
+    creator_id: str,
+    body: dict,
+    current_user: dict = Depends(require_role(Role.ADMIN)),
+    db=Depends(get_db),
+):
+    """Manually set a creator's credit limit.
+
+    Body: { amount: float, notes: str (optional) }
+    Stores who set it, when, and any notes — full audit trail.
+    """
+    amount = body.get("amount")
+    if amount is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "amount is required.")
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "amount must be a number.")
+    if amount < 0:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "amount must be ≥ 0.")
+
+    creators_repo = CreatorsRepo(db)
+    creator = await creators_repo.find_by_id(creator_id)
+    if not creator:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Creator not found.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    notes = str(body.get("notes", "")).strip() or None
+
+    await creators_repo.update(creator_id, {
+        "credit_limit":        amount,
+        "credit_limit_set_by": current_user.get("email", current_user["id"]),
+        "credit_limit_set_at": now,
+        "credit_limit_notes":  notes,
+    })
+
+    return {
+        "ok":           True,
+        "creator_id":   creator_id,
+        "credit_limit": amount,
+        "set_by":       current_user.get("email"),
+        "set_at":       now,
+        "notes":        notes,
     }
