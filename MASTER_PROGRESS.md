@@ -8,77 +8,270 @@
 
 ## Project Identity
 
-- **Product name:** Athanni (formerly My Pay — rebrand in progress)
-- **What it is:** AR financing platform for Indian creators. Creators upload brand deal contracts, Athanni advances up to 80% instantly, collects from brand at maturity.
+- **Product name:** Athanni (formerly My Pay — rebrand complete)
+- **What it is:** AR financing platform for Indian creators. Creators upload brand deal invoices, Athanni advances 80% of invoice value immediately, collects 100% from the brand on the due date, and returns the remaining 20% to the creator minus fees and interest.
 - **Primary market:** Indian creators + Indian/global brands. INR transactions.
-- **Founder:** Akhi (animse66@gmail.com)
-- **Repo location:** `/Users/wolfrag/Desktop/myapp-main/`
+- **Founder:** Akhi (animse66@gmail.com) — admin master account
+- **Repo location (iCloud):** `/Users/wolfrag/Library/Mobile Documents/com~apple~CloudDocs/Desktop/myapp-main/`
+- **Git remote:** `https://github.com/AkhiNimse66/myapp-main.git`
 - **Domain (target):** athanni.co.in
+- **Live deployment:** Frontend → https://myapp-main-xi.vercel.app · Backend → https://myapp-main-production.up.railway.app
+
+> ⚠️ **Git note for Claude:** iCloud mount breaks git file locking. NEVER run git directly on the iCloud mount path. Always:
+> 1. `git clone https://github.com/AkhiNimse66/myapp-main.git /tmp/myapp-local`
+> 2. Edit files on iCloud mount via file tools
+> 3. `cp` changed files into `/tmp/myapp-local`
+> 4. Commit and push from `/tmp/myapp-local` using the GitHub token
 
 ---
 
-## Current Stack (do not change without noting here)
+## Current Stack
 
-| Layer | Tech |
-|-------|------|
-| Backend | FastAPI (Python 3.10), async, Motor (MongoDB) |
-| Database | MongoDB (local dev). PostgreSQL planned for production. |
-| Auth | JWT (PyJWT), bcrypt, RBAC: creator / brand / admin / agency |
-| Frontend | React 19, Vite, Tailwind CSS v3, React Router v7 |
-| Design | Luxury editorial — Instrument Serif + Geist + JetBrains Mono. NO rounded corners. 1px borders. No shadows. |
-| Testing | pytest + pytest-asyncio. 35 unit tests. Must pass after every backend change. |
+| Layer | Tech | Status |
+|-------|------|--------|
+| Backend | FastAPI (Python 3.10), async, Motor (MongoDB) | ✅ Live on Railway |
+| Database | MongoDB Atlas (production) | ✅ Live |
+| Auth | JWT (PyJWT), bcrypt, RBAC: creator / brand / admin / agency | ✅ Working |
+| Frontend | React 19, Vite, Tailwind CSS v3, React Router v7 | ✅ Live on Vercel |
+| Design | Luxury editorial — Instrument Serif + Geist + JetBrains Mono. NO rounded corners. 1px borders. No shadows. | ✅ Locked |
+| Testing | pytest + pytest-asyncio. 35 unit tests. Must pass after every backend change. | ✅ 35/35 |
 
 ---
 
-## Phase Overview (Restructured — Frontend First)
+## Palette (locked — do not change)
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| Navy | `#0D1B3E` | Nav background, page headers, primary buttons |
+| Blue | `#2646B0` | Numbers, label accents, progress bars, active states |
+| Copper | `#B87333` | Logo coin dot, premium CTAs, pricing highlights |
+| White | `#FFFFFF` | Body background |
+| Off-white | `#F7F8FC` | Card/panel backgrounds |
+
+---
+
+## The Business Model (critical context for every feature decision)
+
+**Athanni is an invoice discounting / AR financing platform.**
 
 ```
-PHASE 0  →  Rebrand + Logo + Identity          ← START HERE
-PHASE 1  →  Frontend UI Overhaul               ← Visual priority
-PHASE 2  →  Admin Credit Limit Control         ← Simple backend
-PHASE 3  →  Mock Document System               ← Full deal test run
-PHASE 4  →  Social Media Metrics               ← Instagram + YouTube APIs
-PHASE 5  →  KYC + Identity Verification        ← PAN, Aadhaar (no bank needed)
-PHASE 6  →  eSign Integration                  ← Leegality / Digio
-PHASE 7  →  Cloud Storage (R2)                 ← Replace /tmp
-PHASE 8  →  Brand GST Verification             ← Surepass API
-PHASE 9  →  Real Payments + Bank               ← NEEDS BANK ACCOUNT ← push to end
-PHASE 10 →  Production Deployment              ← NEEDS BANK ACCOUNT ← push to end
+CREATOR                    ATHANNI                    BRAND
+   │                          │                          │
+   │  Uploads brand invoice   │                          │
+   │─────────────────────────▶│                          │
+   │                          │  Verifies brand + deal   │
+   │                          │  Scores creator health   │
+   │                          │  Calculates advance rate │
+   │                          │                          │
+   │  Receives offer:         │                          │
+   │  80% advance of invoice  │                          │
+   │◀─────────────────────────│                          │
+   │                          │                          │
+   │  Signs docs + accepts    │                          │
+   │─────────────────────────▶│                          │
+   │                          │  Sends NOA to brand      │
+   │                          │─────────────────────────▶│
+   │                          │                          │
+   │  Receives 80% wire       │                          │
+   │  within 24 hours         │                          │
+   │◀─────────────────────────│                          │
+   │                          │                          │
+   │  Creator delivers        │                          │
+   │  content to brand        │                          │
+   │─────────────────────────────────────────────────────▶│
+   │                          │                          │
+   │                          │  Brand pays 100%         │
+   │                          │  on invoice due date     │
+   │                          │◀─────────────────────────│
+   │                          │                          │
+   │  Athanni returns 20%     │                          │
+   │  minus fees + interest   │                          │
+   │◀─────────────────────────│                          │
 ```
 
-**Bank account required for:** Phase 9 only (Razorpay disbursements, RazorpayX payouts, NEFT collection).
-Everything before Phase 9 can be built and tested fully without a bank account.
+**Key numbers (initial defaults until evaluated):**
+- Advance rate: **80%** of invoice
+- Wire ETA: **24 hours** (fixed, always displayed)
+- Credit limit: standard placeholder → evaluated after underwriting docs reviewed
+- Creator health score: placeholder → evaluated after underwriting docs reviewed
+- Athanni fee: deducted from the 20% retained when brand pays
+
+---
+
+## Full Creator Journey (Product Flow — source of truth)
+
+### Stage 1: Registration + Onboarding
+
+1. Creator lands on homepage → clicks "Open account"
+2. Fills basic registration (name, email, handle, password)
+3. Account created → immediately enters **multi-step onboarding wizard** (not a wall, seamlessly integrated)
+
+**Onboarding wizard collects (in order, with progress indicator):**
+
+| Step | What we collect | Purpose |
+|------|----------------|---------|
+| 1 | Social handle + platform (Instagram/YouTube) | Creator identity |
+| 2 | First invoice (PDF/image upload) | Underwriting anchor |
+| 3 | Professional dashboard screenshot | Follower/engagement proof |
+| 4 | Past brand collabs with brands (names + amounts) | Track record |
+| 5 | Proof of income — last 3 months brand collab payments | Income verification |
+| 6 | PAN card copy (upload) | KYC identity |
+| 7 | CIBIL check consent + basic details | Credit history |
+| 8 | Bank account details (account number + IFSC) | Disbursement setup |
+
+**After wizard:**
+- Creator lands on dashboard with **initial placeholder values**:
+  - Credit limit: ₹50,000 (default placeholder)
+  - Creator health: "Pending review"
+  - Wire ETA: 24 hours (always fixed)
+  - Advance rate: 80% (displayed as standard)
+- Dashboard shows status: "Your documents are under review — we'll update your profile within 48 hours"
+- Timeline tracker step 1 is active: **Profile submitted**
+
+---
+
+### Stage 2: Athanni Underwriting Review (Admin side)
+
+1. Admin sees new creator in admin panel with "Docs pending review" status
+2. Admin reviews all submitted documents
+3. Admin sets:
+   - **Credit limit** (₹ amount — how much total exposure Athanni takes with this creator)
+   - **Creator health score** (0–100 composite score)
+   - **Advance rate** (80% standard, can vary by risk)
+   - **KYC status** (verified / pending / failed)
+4. Creator dashboard updates with real evaluated values
+5. Creator receives email: "Your Athanni profile is ready — here's your credit facility"
+6. Creator receives: **Credit Facility Agreement** to sign
+
+---
+
+### Stage 3: Creator Submits a Deal
+
+1. Creator goes to "New Deal"
+2. Uploads the brand deal contract/invoice
+3. Fills: brand name, invoice amount, payment terms (days), content due date
+4. Submits → timeline tracker activates:
+
+```
+● Contract uploaded  ──  ● Brand verified  ──  ● Offer ready  ──  ○ Funded
+```
+
+---
+
+### Stage 4: Athanni Evaluates & Makes Offer
+
+1. System (+ admin) verifies the brand:
+   - Is this brand real? (GST lookup, Phase 9)
+   - Brand solvency score
+   - Brand payment history with Athanni
+2. System scores the deal and generates offer:
+   - Advance amount = invoice amount × advance rate
+   - Fee calculation
+   - Net payout to creator
+3. Dashboard updated: **Offer ready** milestone lights up
+4. Creator sees offer card with:
+   - Advance amount (₹)
+   - Fee (% + ₹)
+   - Net payout to you
+   - Wire ETA: 24 hours
+   - Brand score
+   - Creator health score
+
+---
+
+### Stage 5: Creator Reviews + Accepts Offer
+
+Documents generated and shown to creator **before** they accept:
+
+| Doc | Purpose | Needs eSign? |
+|-----|---------|-------------|
+| MOU (Memorandum of Understanding) | Framework of the relationship | Yes — creator signs |
+| NOA (Notice of Assignment) | Assigns invoice payment right to Athanni | Yes — creator + brand acknowledge |
+| Master Sales Agreement | Governs all future deals | Yes — creator signs once |
+| Term Sheet (per invoice) | Specific terms for this invoice | Yes — creator signs |
+| Modified Invoice | Invoice reissued in Athanni's name as assignee | Creator receives |
+
+Creator action: **Accept Offer** button (primary) or **Decline** (secondary, tracked but rare)
+
+---
+
+### Stage 6: Disbursement
+
+1. Creator accepts → Athanni team is notified
+2. Athanni initiates wire transfer (80% of invoice) to creator's bank account
+3. Creator receives email: **Disbursement Confirmation** with UTR/reference number
+4. Timeline: **Funded** milestone lights up
+5. NOA sent to brand finance email: "Please remit invoice payment to Athanni's account on [due date]"
+
+---
+
+### Stage 7: Brand Pays Athanni
+
+1. Brand receives NOA — knows to pay Athanni (not creator) on due date
+2. Brand portal: brand can log in, see NOA, confirm payment, upload UTR
+3. Athanni receives 100% of invoice on due date
+4. Brand receives: **Payment Receipt** (email)
+
+---
+
+### Stage 8: Creator Collects Remaining 20%
+
+1. Creator logs back into Athanni after invoice due date
+2. Dashboard shows: "Your invoice has been paid — collect your remaining balance"
+3. Creator sees:
+   - Invoice total: ₹X
+   - Already advanced: 80% = ₹Y
+   - Remaining: 20% = ₹Z
+   - Athanni fee: ₹F (interest + service charge)
+   - **Net payout to you: ₹Z − ₹F**
+4. Creator triggers collection → Athanni wires the balance
+5. Deal status: **Closed**. Creator receives: **Deal Closure Confirmation** (email)
+
+---
+
+### Overdue Flow (if brand doesn't pay)
+
+- D-14, D-7, D-1: Payment reminder emails to brand
+- D+1: Overdue notice to brand
+- D+7: Escalated overdue notice to brand + Creator Liability Notice to creator
+- D+30: Final escalation
+
+---
+
+## Phase Overview
+
+```
+PHASE 0  →  Rebrand + Logo + Identity              ✅ COMPLETE
+PHASE 1  →  Frontend UI Overhaul                   🔄 IN PROGRESS
+PHASE 2  →  Admin Credit Limit Control             ✅ COMPLETE
+PHASE 3  →  Creator Onboarding Wizard              ❌ NOT STARTED
+PHASE 4  →  Deal Lifecycle + Document System       ❌ NOT STARTED
+PHASE 5  →  Social Media Metrics                   ❌ NOT STARTED
+PHASE 6  →  KYC + Identity Verification            ❌ NOT STARTED
+PHASE 7  →  eSign Integration                      ❌ NOT STARTED
+PHASE 8  →  Cloud Storage (R2)                     ❌ NOT STARTED
+PHASE 9  →  Brand Verification (GST + MCA)         ❌ NOT STARTED
+PHASE 10 →  Real Payments + Bank                   ❌ NEEDS BANK ACCOUNT
+```
 
 ---
 
 ## PHASE 0 — Rebrand + Logo + Visual Identity
-**Goal:** Athanni brand is fully in place before any UI work begins.
 **Status:** ✅ COMPLETE
-**Needs bank account:** No
 
-### Brand Identity Decisions
-- **Name:** Athanni (Hindi/Urdu for 50 paise coin — a unit of value, perfectly on-brand for a financing product)
-- **Domain:** athanni.co.in (purchase ASAP, park it)
-- **Logo concept:** Minimal, typographic or coin-inspired. Must work in black on white and white on black. No gradients, no 3D. Consistent with luxury editorial design system.
-- **Color palette (locked — updated Session 3):** Navy #0D1B3E · Blue accent #2646B0 · Copper #B87333 · White #FFFFFF · Off-white #F7F8FC
-- **Typography (locked):** Instrument Serif (headers) · Geist (body) · JetBrains Mono (numbers/labels)
-
-### Code Tasks
-- [x] Find-and-replace all "My Pay", "mypay", "MyPay" across entire codebase
-- [x] Update DB_NAME in .env: `mypay_dev` → `athanni_dev`
-- [x] Update JWT_SECRET references
-- [x] Update email sender: notifications@mypay.io → notifications@athanni.co.in
-- [x] Update frontend meta tags, page `<title>` tags, Landing copy
-- [x] Update README.md, CLAUDE_CONTEXT.md
-- [x] Design + add Athanni logo (SVG) — used in AppShell nav + Landing
-- [x] Favicon from logo
-- [x] Confirm 35 tests still pass after rename
+- [x] Find-and-replace all "My Pay" / "mypay" / "MyPay" across entire codebase
+- [x] Updated DB_NAME: `mypay_dev` → `athanni_dev`
+- [x] JWT_SECRET, email sender, all references updated
+- [x] Frontend meta tags, page titles, Landing copy updated
+- [x] README.md, CLAUDE_CONTEXT.md updated
+- [x] AthanniLogo shared component (CSS coin-on-i wordmark with metallic radial gradient)
+- [x] Favicon
+- [x] 35/35 tests passing after rename
 
 ---
 
 ## PHASE 1 — Frontend UI Overhaul
-**Goal:** Athanni looks and feels like a serious, premium Indian fintech product.
-**Status:** ✅ COMPLETE (core pages done — remaining pages styled via shared design system)
+**Status:** 🔄 IN PROGRESS
 **Needs bank account:** No
 
 ### Design Principles (non-negotiable)
@@ -87,156 +280,232 @@ Everything before Phase 9 can be built and tested fully without a bank account.
 - 1px borders (`border border-zinc-200` or `border-zinc-800`), zero shadows
 - JetBrains Mono for all rupee amounts, percentages, numbers
 - Dense information — this is a financial product not a marketing site
-- Dark panels for auth (Login, Register) — already partially done, polish it
-- Consistent spacing system: 4px base grid
+- Palette: Navy + Blue + Copper (see locked palette above)
 
-### Pages — Priority Order
+### Pages
 
-#### 1.1 Landing Page (`Landing.jsx`) — HIGHEST PRIORITY
-- [x] Hero with Klein blue "sixty days" accent + trust signals (CheckCircle row)
-- [x] Stats strip with Klein blue numbers
-- [x] Live credit memo card with blue top accent + blue risk score bar
-- [x] "How it works" 4-step grid with Klein blue active step indicator
-- [x] "Why Athanni" pillars section with blue icons
-- [x] Transparent fee ladder (4-tier pricing table)
-- [x] Full-bleed Klein blue CTA footer section
-- [x] Primary CTAs → btn-brand (Klein blue), secondary → btn-brand-ghost
-- [x] AthanniLogo shared component wired in (replaces old inline AthanniMark)
+#### 1.1 Landing Page (`Landing.jsx`) ✅ COMPLETE
+- [x] Hero: "Get paid today. *Not in 90 days.*"
+- [x] Subhead: "...wire up to **90%** of invoice value — same day"
+- [x] Redesigned hero card: navy header, progress timeline (4 steps), brand + creator score bars, offer breakdown grid
+- [x] Stats strip: ₹18.4Cr funded
+- [x] Nav: "Open account" ghost button (removed "Get funded" copper button)
+- [x] "How it works" 4-step grid
+- [x] Fee ladder table
+- [x] Navy CTA footer: "Get paid within 24 hours"
+- [x] TrendingUp icon in pillars
 
-#### 1.2 Dashboard (`Dashboard.jsx`) — CREATOR'S HOME
-- [x] "New Deal" CTA → btn-brand (Klein blue)
-- [x] Credit limit amount → Klein blue
-- [x] Credit limit usage bar → Klein blue
-- [x] Creator Health Index → Klein blue
-- [x] Tier progression active dot → Klein blue
-- [x] Tier progression bar → Klein blue
-- [x] Pipeline stage bars → Klein blue
-- [x] "Connect accounts" CTA when Phyllo disconnected → btn-brand
+#### 1.2 Login Page (`Login.jsx`) ✅ COMPLETE
+- [x] Show/hide password toggle (Eye/EyeOff icon)
+- [x] Right panel quote: "Stop waiting *90 days* for the wire."
+- [x] Right panel stats: 90% Max advance · 24 hr Median wire · 2.5% Floor fee
 
-#### 1.3 Deal New (`DealNew.jsx`) — CORE PRODUCT FLOW
-Current state: Form. Functional but feels like a form.
-Goal: Guided submission experience. Creator feels confident, not confused.
-- [ ] Step indicator (1. Upload contract → 2. Enter deal details → 3. Review)
-- [ ] Contract upload zone — drag & drop, clear file preview
-- [ ] Brand selector — clean dropdown with brand logo/name
+#### 1.3 Register Page (`Register.jsx`) ✅ COMPLETE
+- [x] Show/hide password toggle (Eye/EyeOff icon)
+
+#### 1.4 Admin Panel (`AdminPanel.jsx`) ✅ COMPLETE
+- [x] Users tab: search by name/email, filter by role, role change (with confirm), suspend/activate toggle
+- [x] Creators tab: table with KYC/limit/tier/score/deal counts, expandable row with social metrics + deal breakdown + audit trail, "Set Limit" modal
+
+#### 1.5 Dashboard (`Dashboard.jsx`) ✅ COMPLETE
+- [x] Credit limit amount in blue
+- [x] Credit limit usage bar in blue
+- [x] Creator Health Index in blue
+- [x] Tier progression — active dot + bar in blue
+- [x] Pipeline stage bars in blue
+- [x] "New Deal" CTA — btn-brand
+
+#### 1.6 AppShell + Navigation ✅ COMPLETE
+- [x] Dark navy header
+- [x] AthanniLogo in nav
+- [ ] Mobile nav (hamburger menu) — PENDING
+
+#### 1.7 Deal New (`DealNew.jsx`) ❌ PENDING
+Goal: Guided multi-step submission experience (not a bare form).
+- [ ] Step indicator (1. Upload invoice → 2. Deal details → 3. Review & submit)
+- [ ] Invoice/contract upload zone — drag & drop, file preview
+- [ ] Brand selector — dropdown (existing brands) + "new brand" option
 - [ ] Amount + terms inputs — inline validation, formatted in ₹
-- [ ] Review step — summary before submit
+- [ ] Payment due date field (invoice date + N days)
+- [ ] Review step — full summary before submit
 
-#### 1.4 Deal Detail (`DealDetail.jsx`) — DEAL VIEW + ACTION
-Current state: Functional but information-heavy and unstructured
-Goal: Clear decision page. Creator understands the offer and can act confidently.
-- [ ] Offer card — advance amount, fee, net payout — all prominent, mono font
-- [ ] Risk gauge — existing RiskGauge component, better placement
-- [ ] Contract analysis panel — AI analysis output, readable format
-- [ ] Action buttons — "Accept Offer" prominent, "Decline" secondary
-- [ ] Status timeline — shows deal progression visually
-- [ ] Repayment section — brand payment status, UTR entry
+#### 1.8 Deal Detail (`DealDetail.jsx`) ❌ PENDING
+Goal: Clear offer page — creator understands and can act confidently.
+- [ ] Offer card — advance amount (₹), fee, net payout — mono font, prominent
+- [ ] Timeline tracker (matches screenshot: Contract → Brand verified → Offer ready → Funded)
+- [ ] Brand score display
+- [ ] Creator health display
+- [ ] Document list (MOU, NOA, MSA, Term Sheet, Modified Invoice) with download/sign buttons
+- [ ] "Accept Offer" (primary, navy/blue) + "Decline" (secondary, ghost) action buttons
+- [ ] Repayment section (shown after funded): brand payment status, "Collect balance" trigger
 
-#### 1.5 Deals List (`DealsList.jsx`)
-- [ ] Clean table with status chips
+#### 1.9 Deals List (`DealsList.jsx`) ❌ PENDING
+- [ ] Table with status chips (Submitted / Brand verified / Offer ready / Funded / Repaid / Overdue)
 - [ ] Filter bar — by status, date range, amount
-- [ ] Empty state — first deal prompt
+- [ ] Empty state — prompt to submit first deal
 
-#### 1.6 Profile Page (`Profile.jsx`)
-- [ ] Social accounts section — connect Instagram, YouTube (OAuth buttons)
-- [ ] Payout method — UPI / bank account entry
-- [ ] Credit limit display — set by admin, not editable by creator
-- [ ] KYC status indicator (future)
+#### 1.10 Profile Page (`Profile.jsx`) ❌ PENDING
+- [ ] Social accounts section — connect Instagram, YouTube (OAuth buttons) — Phase 5 dependency
+- [ ] KYC status indicator (Pending review / Verified / Action required)
+- [ ] Payout method — UPI / bank account display (entered during onboarding)
+- [ ] Credit limit display — set by admin, read-only for creator
+- [ ] Advance rate — set by admin, read-only for creator
+- [ ] Uploaded documents log (onboarding docs submitted)
 
-#### 1.7 Brand Portal (`BrandPortal.jsx`)
-- [ ] Cleaner invoice table
-- [ ] Athanni bank details card (NEFT/RTGS) — mock details for now
-- [ ] UTR confirmation modal — cleaner flow
-- [ ] NOA status per deal
-
-#### 1.8 Admin Panel (`AdminPanel.jsx`)
-- [ ] Creator management tab — list creators, set credit limits
-- [ ] Deal oversight tab — pipeline view, override controls
-- [ ] Brand management tab — already partially built
-- [ ] Document log tab — all generated docs per deal
-- [ ] Email log tab — already exists, polish it
-
-#### 1.9 Login + Register
-- [x] Shared AthanniLogo component wired in (coin-on-i wordmark) — Login, Register, BrandPortal, BrandRegister
-- [x] Luxury dark right panel already in place
-- [ ] Further polish if needed
-
-#### 1.10 AppShell + Navigation
-- [x] AthanniLogo shared component in nav (was done in Session 2)
-- [ ] Mobile nav (hamburger menu)
+#### 1.11 Brand Portal (`BrandPortal.jsx`) ❌ PENDING
+- [ ] Deals assigned to this brand (NOA received)
+- [ ] Invoice table — amount, due date, status
+- [ ] Athanni bank details card (NEFT/RTGS — mock for now, real after Phase 10)
+- [ ] UTR confirmation input — cleaner flow
+- [ ] NOA acknowledgment button per deal
+- [ ] Payment receipt download
 
 ---
 
 ## PHASE 2 — Admin Manual Credit Limit Control
-**Goal:** Admin sets credit limits per creator. No auto-scoring.
-**Status:** NOT STARTED
-**Needs bank account:** No
+**Status:** ✅ COMPLETE
 
-Decision: Credit limit is manually assigned by Athanni admin. Admin has full control. Social score shown as reference only.
+### Backend ✅
+- [x] `PATCH /api/admin/creators/{id}/credit-limit` — set limit with audit trail (credit_limit_set_by, credit_limit_set_at, credit_limit_notes)
+- [x] `GET /api/admin/creators` — list all creators with limits + scores + deal counts
+- [x] `GET /api/admin/creators/{id}` — full detail with deals + transactions
+- [x] `GET /api/admin/users` — all users across all roles
+- [x] `PATCH /api/admin/users/{user_id}/role` — with last-admin guard
+- [x] `PATCH /api/admin/users/{user_id}/status` — activate/suspend
+- [x] `PATCH /api/admin/users/promote-by-email` — promote any email to any role (used to make animse66@gmail.com admin)
 
-- [ ] Add `credit_limit_override` + `credit_limit_set_by` + `credit_limit_set_at` fields to creator document
-- [ ] New endpoint: `PATCH /api/admin/creators/{id}/credit-limit` (body: amount, notes)
-- [ ] New endpoint: `GET /api/admin/creators` — list all creators with their current limits
-- [ ] Admin panel: "Creators" tab — table of creators, current limit, "Edit Limit" button
-- [ ] Creator dashboard: shows limit (removed auto-compute language)
-- [ ] Confirm tests pass
+### Frontend ✅
+- [x] AdminPanel: Users tab (search, filter, role change, suspend/activate)
+- [x] AdminPanel: Creators tab (expandable rows, Set Limit modal, audit trail)
 
 ---
 
-## PHASE 3 — Mock Document System (Full End-to-End Test Run)
-**Goal:** Every document in the deal lifecycle exists and is generated. A complete deal runs end-to-end with real PDFs and real emails, all mock/template content.
-**Status:** NOT STARTED
-**Needs bank account:** No (disbursement is mock payout)
+## PHASE 3 — Creator Onboarding Wizard
+**Status:** ❌ NOT STARTED
+**Needs bank account:** No
+**Priority:** HIGH — this is the core of the creator funnel
 
-#### All 13 Documents to Build
+### Goal
+After basic registration, creator is guided through a seamless 8-step document collection wizard. UX must feel like a modern fintech onboarding (Cred / Zepto-style steps) — not a form dump. Progress bar at top, one step at a time, each step has a clear purpose explained to the creator.
 
-| # | Document | Trigger | Recipient | Status |
-|---|----------|---------|-----------|--------|
-| 1 | Credit Facility Agreement | Creator onboarding | Creator signs | Not built |
-| 2 | Credit Limit Letter | Admin sets limit | Creator (email) | Not built |
-| 3 | Advance Offer Letter | Deal scored | Creator reviews | Not built |
-| 4 | Financing Agreement (per deal) | Creator accepts | Creator signs | Not built |
-| 5 | Notice of Assignment (NOA) | Creator accepts | Brand finance email | Not built |
-| 6 | Invoice (creator → brand) | Creator accepts | Brand | Not built |
-| 7 | Disbursement Confirmation | Advance sent | Creator (email) | Not built |
-| 8 | NOA Acknowledgment | Brand acknowledges | Athanni records | Not built |
-| 9 | Payment Reminder x3 | D-14, D-7, D-1 | Brand (email) | Not built |
-| 10 | Payment Receipt | Brand pays | Brand (email) | Not built |
-| 11 | Deal Closure Confirmation | Deal repaid | Creator (email) | Not built |
-| 12 | Overdue Notice x3 | D+1, D+7, D+30 | Brand (email) | Not built |
-| 13 | Creator Liability Notice | D+7 overdue | Creator (email) | Not built |
+### Backend Tasks
+- [ ] New model: `OnboardingDocument` — track each doc type, upload status, admin review status
+- [ ] New endpoint: `POST /api/creators/onboarding/upload` — accepts doc_type + file
+- [ ] New endpoint: `GET /api/creators/onboarding/status` — returns step completion status
+- [ ] New endpoint: `PATCH /api/admin/creators/{id}/underwriting` — admin sets credit_limit, health_score, advance_rate, kyc_status after reviewing docs
+- [ ] Add to creator model: `onboarding_complete: bool`, `onboarding_step: int`, `kyc_status`, `advance_rate`, `underwriting_reviewed_at`, `underwriting_reviewed_by`
+- [ ] Email trigger: when admin completes underwriting → creator receives "Your profile is ready" email with Credit Facility Agreement
 
-#### Backend Tasks
+### Frontend Tasks
+- [ ] New page: `Onboarding.jsx` — wizard with 8 steps
+- [ ] Step 1: Social handle + platform selector
+- [ ] Step 2: First invoice upload (PDF/JPG/PNG, drag & drop)
+- [ ] Step 3: Professional dashboard screenshot upload (with explainer text: "Screenshot of your Instagram/YouTube analytics")
+- [ ] Step 4: Past brand collabs — simple list (brand name + amount + date, add multiple)
+- [ ] Step 5: Proof of income — last 3 months collab payment proofs (multi-file upload)
+- [ ] Step 6: PAN card upload (with PAN number field for auto-verification in Phase 6)
+- [ ] Step 7: CIBIL consent checkbox + basic details (name, DOB, mobile — for CIBIL pull in Phase 6)
+- [ ] Step 8: Bank account details (account number, IFSC, account holder name)
+- [ ] After wizard: redirect to dashboard showing "Under review" state
+- [ ] Dashboard banner: "Documents under review · Typically 48 hours" with progress indicator
+- [ ] Route guard: if onboarding not complete, redirect to wizard before any deal submission
+
+### Onboarding Documents Reference
+
+| Step | Document / Data | Format | Auto-verify? |
+|------|----------------|--------|-------------|
+| 1 | Social handle + platform | Text | Phase 5 (OAuth) |
+| 2 | First invoice | PDF/Image | OCR (Phase 4) |
+| 3 | Professional dashboard screenshot | Image | Manual review |
+| 4 | Past brand collabs | Structured form | Manual review |
+| 5 | Proof of income (3 months) | PDF/Image (multi) | Manual review |
+| 6 | PAN card | Image/PDF | IDfy API (Phase 6) |
+| 7 | CIBIL consent + details | Form | CIBIL API (Phase 6) |
+| 8 | Bank account | Form | Penny drop (Phase 10) |
+
+---
+
+## PHASE 4 — Deal Lifecycle + Document System
+**Status:** ❌ NOT STARTED
+**Needs bank account:** No (disbursement is mock for now)
+
+### Goal
+Every step of the deal lifecycle — from invoice upload to final collection — is tracked, documented, and communicated. A complete deal runs end-to-end with real PDFs and real emails.
+
+### Deal Status State Machine
+
+```
+submitted → brand_verified → offer_ready → accepted → funded → repaid → closed
+                                              └──────→ declined → closed
+                                                                    
+(overdue track: funded → overdue → escalated → legal)
+```
+
+### Timeline Tracker UI (reference: screenshot)
+```
+● Contract ── ● Brand verified ── ● Offer ready ── ○ Funded
+```
+All 4 steps shown on DealDetail page header, with active/complete/pending states.
+
+### All 13 Documents to Build
+
+| # | Document | Trigger | Recipient | Needs eSign? | Status |
+|---|----------|---------|-----------|-------------|--------|
+| 1 | Credit Facility Agreement | Admin completes underwriting | Creator signs | Yes | Not built |
+| 2 | Credit Limit Letter | Admin sets credit limit | Creator (email) | No | Not built |
+| 3 | Advance Offer Letter | Deal scored, offer ready | Creator reviews | No | Not built |
+| 4 | MOU (Memorandum of Understanding) | Offer accepted | Creator signs | Yes | Not built |
+| 5 | NOA (Notice of Assignment) | Offer accepted | Creator signs + Brand receives | Yes | Not built |
+| 6 | Master Sales Agreement | First deal (once only) | Creator signs | Yes | Not built |
+| 7 | Term Sheet (per invoice) | Offer accepted | Creator signs | Yes | Not built |
+| 8 | Modified Invoice | Offer accepted | Creator receives | No | Not built |
+| 9 | Disbursement Confirmation | Advance wired | Creator (email) | No | Not built |
+| 10 | Payment Reminder ×3 | D-14, D-7, D-1 | Brand (email) | No | Not built |
+| 11 | Payment Receipt | Brand pays | Brand (email) | No | Not built |
+| 12 | Deal Closure Confirmation | Creator collects balance | Creator (email) | No | Not built |
+| 13 | Overdue Notice ×3 | D+1, D+7, D+30 | Brand + Creator | No | Not built |
+
+### Backend Tasks
 - [ ] Install `weasyprint` or `reportlab` for PDF generation
 - [ ] Create `backend/app/services/document_generator.py`
-- [ ] Build all 13 document templates (Athanni branded)
+- [ ] Build all 13 document templates (Athanni-branded)
 - [ ] Add `payment_due_date` to deal model (deal_date + payment_terms_days)
-- [ ] Wire docs into deal lifecycle endpoints
-- [ ] NOA delivery: email to brand contact on deal advance
-- [ ] Brand portal: show NOA acknowledgment button
-- [ ] Maturity sweep: check payment_due_date, trigger reminders
+- [ ] Add `brand_score` to deal model (from brand verification)
+- [ ] Add deal status transitions with timestamps
+- [ ] New endpoint: `POST /api/deals/{id}/accept` — creator accepts offer, triggers doc generation + NOA email to brand
+- [ ] New endpoint: `POST /api/deals/{id}/decline` — creator declines, deal closed
+- [ ] New endpoint: `POST /api/deals/{id}/collect-balance` — creator triggers final 20% collection
+- [ ] Maturity sweep: cron/scheduler checks payment_due_date, triggers reminders
 - [ ] Wire all emails through Resend (add RESEND_API_KEY to .env)
+- [ ] NOA email delivery to brand finance contact on deal acceptance
+
+### Frontend Tasks
+- [ ] DealDetail.jsx — see Phase 1.8 above
+- [ ] Deal acceptance modal — shows all docs, confirm button
+- [ ] Document viewer — inline PDF preview or download links
+- [ ] "Collect balance" flow — shows breakdown (invoice total, advanced, fee, net)
 
 ---
 
-## PHASE 4 — Social Media Metrics
-**Goal:** Real Instagram + YouTube metrics feed into creator profiles (reference data for admin).
-**Status:** NOT STARTED
+## PHASE 5 — Social Media Metrics
+**Status:** ❌ NOT STARTED
 **Needs bank account:** No
 
-#### Instagram
+### Instagram
 - API: Instagram Graph API (official Meta, free)
-- Requires: Business/Creator IG account + connected Facebook Page
-- Need: Meta Developer App registered for Athanni (1–2 week approval)
-- We get: followers, media_count, engagement rate, reach, impressions
-- [ ] Register Meta Developer App
+- Requires: Business/Creator IG account + connected Facebook Page + Meta Developer App for Athanni
+- Approval timeline: 1–2 weeks
+- Data: followers, media_count, engagement rate, reach, impressions
+
+- [ ] Register Meta Developer App for Athanni
 - [ ] Build Instagram OAuth connect flow (frontend button → backend token exchange)
-- [ ] Store tokens encrypted per creator
+- [ ] Store access tokens encrypted per creator
 - [ ] Pull + display real metrics on Profile page
 - [ ] Show metrics as reference on admin creator detail view
+- [ ] Refresh tokens on schedule (long-lived tokens last 60 days)
 
-#### YouTube
-- API: YouTube Data API v3 (official Google, free — 10K units/day quota)
+### YouTube
+- API: YouTube Data API v3 (free — 10K units/day quota)
 - [ ] Register Google Cloud project for Athanni
 - [ ] Build YouTube OAuth connect flow
 - [ ] Pull: subscribers, view_count, video_count, channel_age
@@ -244,100 +513,111 @@ Decision: Credit limit is manually assigned by Athanni admin. Admin has full con
 
 ---
 
-## PHASE 5 — KYC + Identity Verification
-**Goal:** Legal compliance before disbursement.
-**Status:** NOT STARTED
-**Needs bank account:** No (KYC is identity only)
+## PHASE 6 — KYC + Identity Verification
+**Status:** ❌ NOT STARTED
+**Needs bank account:** No
+**Note:** Integrated into onboarding wizard (Phase 3). This phase adds real API verification.
 
 Recommended provider: **IDfy** (evaluate pricing) or **Signzy**
 - PAN verification: ~₹2–5/call
-- Aadhaar eKYC (OTP): ~₹5–15/verification
+- CIBIL check: per pull pricing
 
-- [ ] Choose and onboard KYC provider
-- [ ] PAN verification on creator onboarding
-- [ ] Aadhaar eKYC (OTP-based)
-- [ ] Add `kyc_status` to creator document (pending / verified / failed)
-- [ ] Gate deal advance on kyc_status = verified
+- [ ] Choose and onboard KYC provider (IDfy preferred)
+- [ ] PAN verification API — called when creator submits PAN in onboarding step 6
+- [ ] CIBIL check — pulled from onboarding step 7 details
+- [ ] Add `pan_verified`, `cibil_score`, `kyc_status` to creator document
+- [ ] Gate deal advance on `kyc_status = verified`
 - [ ] Admin: view KYC status per creator, manual override if needed
+- [ ] Show KYC status on creator dashboard + admin panel
 
 ---
 
-## PHASE 6 — eSign Integration
-**Goal:** All agreements legally signed.
-**Status:** NOT STARTED
+## PHASE 7 — eSign Integration
+**Status:** ❌ NOT STARTED
 **Needs bank account:** No
 
 Provider: **Leegality** (India's most-used fintech eSign) or **Digio**
 Cost: ~₹30–50 per signed document
 
+Documents requiring eSign (from Phase 4):
+- Credit Facility Agreement (creator, at onboarding completion)
+- MOU (creator, per deal)
+- NOA (creator signs; brand acknowledges via emailed link)
+- Master Sales Agreement (creator, first deal only)
+- Term Sheet (creator, per deal)
+
 - [ ] Choose provider, get API keys
-- [ ] Credit Facility Agreement: creator signs at onboarding
-- [ ] Financing Agreement: creator signs before each deal advance
-- [ ] NOA: brand signs/acknowledges via emailed link
+- [ ] Build eSign request flow: generate doc → send signing request → webhook on completion
 - [ ] Store signed document URLs on creator/deal records
+- [ ] Block deal progression until required docs are signed
+- [ ] Admin: view signing status per deal
 
 ---
 
-## PHASE 7 — Cloud Storage
-**Goal:** Contracts and generated documents off /tmp and into persistent cloud storage.
-**Status:** NOT STARTED
+## PHASE 8 — Cloud Storage
+**Status:** ❌ NOT STARTED (partial workaround in place)
 **Needs bank account:** No
 
-Provider: **Cloudflare R2** (S3-compatible, no egress fees — cheaper than AWS S3)
+**Current state:** Contract files stored as base64 in MongoDB (works, not ideal for large files)
+**Target:** Cloudflare R2 (S3-compatible, no egress fees)
 
-- [ ] Set up R2 bucket
-- [ ] Update `routers/contracts.py` — replace /tmp with R2 `put_object()`
-- [ ] Replace `FileResponse` with presigned URL (time-limited, secure)
-- [ ] Store doc URLs on deal/contract records
+- [ ] Set up R2 bucket on Cloudflare
+- [ ] Update `routers/contracts.py` — replace base64-in-MongoDB with R2 `put_object()`
+- [ ] Replace base64 serving with presigned URL (time-limited, secure)
+- [ ] Store R2 object keys on contract/deal records
+- [ ] Also store generated PDFs (Phase 4) and signed docs (Phase 7) in R2
 
 ---
 
-## PHASE 8 — Brand Verification (GST + MCA)
-**Goal:** Validate brands are real registered Indian companies.
-**Status:** Mock only
+## PHASE 9 — Brand Verification (GST + MCA)
+**Status:** Mock only (seed data has mock brands)
 **Needs bank account:** No
 
-Provider: **Surepass** — GST + PAN + company verification
+Provider: **Surepass** — GST + PAN + company verification API
 Cost: ~₹1–5/call
 
-- [ ] GST number verification on brand registration
+- [ ] GST number field on brand registration
+- [ ] GST verification API on brand registration submit
 - [ ] Company registration lookup via MCA21
-- [ ] Admin: brand solvency tier based on verification
+- [ ] Add `gst_verified`, `mca_verified`, `solvency_tier` to brand document
+- [ ] Brand solvency tier feeds into deal brand score (admin reference)
+- [ ] Admin: view brand verification status per brand
+- [ ] Show brand score on DealDetail page for creator
 
 ---
 
-## PHASE 9 — Real Payments ← NEEDS BANK ACCOUNT
-**Goal:** Real money movement — disbursements to creators, collections from brands.
-**Status:** Stubbed
-**Needs bank account:** YES — do not start until Athanni bank account is open
+## PHASE 10 — Real Payments ← NEEDS BANK ACCOUNT
+**Status:** Stubbed / mock
+**Needs bank account:** YES — do not start until Athanni business bank account is open
 
-- [ ] Open Athanni business bank account
+- [ ] Open Athanni business bank account (mandatory prerequisite)
 - [ ] Register on Razorpay (business account required)
-- [ ] Get Razorpay API keys (rzp_test_xxx for testing)
+- [ ] Get Razorpay API keys (rzp_test_xxx first)
 - [ ] Get RazorpayX Payouts API keys (for creator disbursements)
 - [ ] Activate `repay-checkout` endpoint in `routers/deals.py`
 - [ ] Set PAYOUT_MODE=razorpay in .env
 - [ ] Add Razorpay Payment Link option for brand (alternative to NEFT)
 - [ ] Bank account details in .env → replace XXXXX placeholders
-- [ ] Bank account penny drop verification for creator onboarding (needs Razorpay)
+- [ ] Bank account penny drop verification for creator onboarding bank details
 - [ ] Test full money flow end-to-end in Razorpay test mode
+- [ ] athanni.co.in domain purchased + DNS pointed
 
 ---
 
-## PHASE 10 — Production Deployment ← NEEDS BANK ACCOUNT
-**Goal:** Live on athanni.co.in
-**Status:** NOT STARTED
-**Needs bank account:** YES (Razorpay integration required for production)
+## Deployment Reference (current live setup)
 
-- [ ] Purchase athanni.co.in domain
-- [ ] Railway account (backend hosting)
-- [ ] Vercel account (frontend hosting)
-- [ ] MongoDB Atlas (managed Mongo) or PostgreSQL migration
-- [ ] Set all env vars in Railway/Vercel dashboards
-- [ ] Point DNS: athanni.co.in → Vercel, api.athanni.co.in → Railway
-- [ ] SSL (automatic on both platforms)
-- [ ] Seed admin account on production
-- [ ] Smoke test full flow on live URL
+| Service | URL / Config |
+|---------|-------------|
+| Frontend | https://myapp-main-xi.vercel.app (Vercel auto-deploys from main branch) |
+| Backend | https://myapp-main-production.up.railway.app (Railway auto-deploys from main branch) |
+| Database | MongoDB Atlas (cluster connected via MONGO_URI in Railway env) |
+| Backend env vars | MONGO_URI, JWT_SECRET, CORS_ORIGINS, SEED_KEY, RESEND_API_KEY (pending) |
+| Frontend env vars | VITE_BACKEND_URL=https://myapp-main-production.up.railway.app |
+| Admin account | animse66@gmail.com (promoted to admin via /api/admin/users/promote-by-email) |
+
+**Seed endpoint (use carefully):**
+- `GET /api/seed-demo?key={SEED_KEY}` — seeds demo data (safe, does not wipe)
+- `GET /api/seed-demo?key={SEED_KEY}&force=true&confirm_wipe=yes` — wipes + reseeds (DESTRUCTIVE)
 
 ---
 
@@ -346,155 +626,123 @@ Cost: ~₹1–5/call
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | May 2026 | Rebrand My Pay → Athanni | Stronger brand — coin reference fits AR financing |
-| May 2026 | Frontend-first build order | Visual progress is motivating + needed for any investor/test-user demos |
-| May 2026 | Credit limit = manual admin control | No scoring algorithm yet. Admin sets per creator. Keeps Phase 2 simple. |
-| May 2026 | All docs = mock/template for Phase 3 | Get full flow working before real legal APIs |
-| May 2026 | Instagram = Graph API (official OAuth) | Basic Display API deprecated Dec 2024. Graph API is free + official. |
+| May 2026 | Frontend-first build order | Visual progress needed for investor/user demos |
+| May 2026 | Credit limit = manual admin control | No scoring algorithm yet. Admin sets per creator. |
+| May 2026 | All docs = template/mock for Phase 4 | Get full flow working before real legal APIs |
+| May 2026 | Instagram = Graph API (official OAuth) | Basic Display API deprecated Dec 2024 |
 | May 2026 | Phyllo = skip for MVP | Enterprise pricing, overkill for early stage |
 | May 2026 | eSign = Leegality | Most used in Indian fintech |
 | May 2026 | KYC = IDfy (evaluate) | Good API, reasonable early-stage pricing |
-| May 2026 | File storage = Cloudflare R2 | No egress fees, S3-compatible, cheaper than AWS |
+| May 2026 | File storage = Cloudflare R2 | No egress fees, S3-compatible |
 | May 2026 | Hosting = Railway + Vercel | No Docker needed, fast deployment |
-| May 2026 | Bank-dependent features pushed to Phase 9–10 | No bank account yet. Everything before Phase 9 is buildable now. |
-| May 2026 | UI palette = Navy + Blue + Copper | Chose Option B (White + Navy #0D1B3E + Blue #2646B0 + Copper #B87333). Most readable, distinct from competitors, copper ties to the coin logo. |
-| May 2026 | Logo = CSS-based coin-on-i wordmark | SVG text-metric approach was fragile (font-load race). CSS absolute positioning is reliable. Coin dot uses metallic radial gradient matching real 25 paise coin. |
-| May 2026 | Deployment = Vercel + Railway next session | Frontend → Vercel, Backend → Railway, DB → MongoDB Atlas. No bank account needed for this. Priority for next session. |
-| May 2026 | railway.toml: pip install over uv sync | uv sync --frozen has cross-platform lockfile risks on Railway Linux. pip install -r requirements.txt is simpler and reliable. |
-| May 2026 | Frontend env var = VITE_BACKEND_URL | Vite uses import.meta.env.VITE_* not process.env.REACT_APP_*. Set this in Vercel dashboard, NOT .env file. |
-| May 2026 | CORS_ORIGINS in Railway env = both Vercel URL + custom domain | Must include Vercel deployment URL + athanni.co.in once domain is pointed |
+| May 2026 | Bank-dependent features → Phase 10 only | No bank account yet. Everything before is buildable now. |
+| May 2026 | Palette = Navy + Blue + Copper | White #FFF + Navy #0D1B3E + Blue #2646B0 + Copper #B87333 |
+| May 2026 | Logo = CSS-based coin-on-i wordmark | SVG text-metric approach was fragile. CSS absolute positioning is reliable. |
+| May 2026 | railway.toml = pip install over uv sync | uv sync --frozen has cross-platform lockfile risks on Railway Linux |
+| May 2026 | VITE_BACKEND_URL for frontend env var | Vite uses import.meta.env.VITE_* not process.env.REACT_APP_* |
+| May 2026 | Contract files = base64 in MongoDB | Eliminates /tmp data loss on Railway redeploy. R2 migration in Phase 8. |
+| May 2026 | Advance rate = 80% (standard) | Industry standard for invoice discounting. Adjustable per creator by admin. |
+| May 2026 | Wire ETA = 24 hours (fixed marketing claim) | Achievable with manual ops. Fixed in all UI copy. |
+| May 2026 | Hero copy = "Not in 90 days" | 90 days = industry standard brand payment terms. The pain point we solve. |
+| May 2026 | Onboarding = seamless wizard (Phase 3) | Document collection must feel like Cred/fintech onboarding, not a form dump |
+| May 2026 | Git workflow = clone to /tmp, never run git on iCloud mount | iCloud FUSE filesystem breaks git file locking. /tmp clone → copy → push is reliable. |
 
 ---
 
 ## Session Log
 
+### Session 5 — May 2026
+**Work done:**
+
+*UI Polish (all pushed to GitHub → Vercel live):*
+- `Landing.jsx` — full rewrite: hero "Not in 90 days" (90 days = industry pain, we solve it), redesigned hero card with navy header / progress timeline / brand+creator score bars / offer breakdown grid, stats → ₹18.4Cr, nav → ghost "Open account" (removed copper "Get funded" btn), fee ladder best rate 90%, CTA "Get paid within 24 hours"
+- `Login.jsx` — show/hide password toggle (Eye/EyeOff from lucide-react), right panel: "Stop waiting *90 days* for the wire", stats: 90% max advance / 24hr median wire / 2.5% floor fee
+- `Register.jsx` — show/hide password toggle (Eye/EyeOff from lucide-react)
+
+*Git infrastructure fix:*
+- Diagnosed: iCloud Drive mount breaks git file locking (FUSE limitation → "Resource deadlock avoided" bus error)
+- Established permanent workaround: `git clone` to `/tmp/myapp-local` → copy files → commit → push with GitHub token. This is now the standard workflow for all sessions.
+- Pushed all three files successfully from /tmp clone
+
+*Product flow clarification (from Akhi):*
+- Confirmed business model: Athanni advances 80% → brand pays 100% to Athanni → creator collects remaining 20% minus fees
+- Hero contrast = "today vs 90 days" (industry wait time), wire stat = 24hr
+- Onboarding wizard: 8-step document collection during account creation
+- Deal lifecycle: 4-step timeline tracker (Contract → Brand verified → Offer ready → Funded)
+- 5 documents generated on deal acceptance: MOU, NOA, Master Sales Agreement, Term Sheet, Modified Invoice
+- Creator collects remaining 20% after brand pays Athanni
+
+*Master doc:*
+- Full rewrite: updated phase statuses, added business model flow diagram, full creator journey, new Phase 3 (Onboarding Wizard), restructured Phase 4 (Deal Lifecycle + Documents), updated all decisions
+
+**Decisions made:**
+- Hero copy = "Not in 90 days" (90 days is the industry pain point)
+- Wire ETA = 24 hours (fixed in all UI copy)
+- Advance rate = 80% displayed as standard
+- Onboarding = Phase 3 (seamless 8-step wizard, not a form wall)
+- Git = always use /tmp clone workflow (never run git on iCloud mount)
+
+**Next session:**
+- Brainstorm approach to Phase 3 (Creator Onboarding Wizard) with Akhi
+- Then build Phase 3 backend + frontend
+- Remaining Phase 1 pages: DealNew, DealDetail, DealsList, Profile, BrandPortal
+
+---
+
 ### Session 4 — May 2026
 **Work done:**
 
-*Deployment config prep:*
-- Fixed `backend/railway.toml`: switched build from `uv sync --frozen` → `pip install -r requirements.txt` (more reliable on Railway Linux); switched start from `uv run uvicorn` → plain `uvicorn`; added `healthcheckTimeout = 30`
-- `.python-version` already present and correct (3.10)
-- Fixed `frontend/vercel.json`: added `"framework": "vite"`, changed `installCommand` to `npm install --legacy-peer-deps` (required for React 19 + Radix peer deps), separated install and build commands
-- Created `frontend/.env.production` template with `VITE_BACKEND_URL` placeholder
-- Noted: frontend env var is `VITE_BACKEND_URL` (Vite standard), NOT `REACT_APP_BACKEND_URL`
+*Deployment:*
+- Fixed `backend/railway.toml`: `uv sync --frozen` → `pip install -r requirements.txt`, added healthcheckTimeout=30
+- Fixed `frontend/vercel.json`: added `"framework":"vite"`, `npm install --legacy-peer-deps`
+- Deployed: Frontend → Vercel (myapp-main-xi.vercel.app), Backend → Railway, DB → MongoDB Atlas
+- Diagnosed and fixed "invalid login" — missing seed data in production; ran `/api/seed-demo`
+- Confirmed admin + creator logins working via curl
 
-*Config corrections flagged:*
-- Railway CORS_ORIGINS must include Vercel deployment URL — set after Vercel URL is known
-- DB_NAME in production = `athanni_prod` (not `athanni_dev`)
-- JWT_SECRET must be changed to a strong random secret in production
+*Phase 2 — Admin Credit Control:*
+- Built `PATCH /api/admin/creators/{id}/credit-limit` with full audit trail
+- Built `GET /api/admin/creators`, `GET /api/admin/creators/{id}`
+- Built `GET /api/admin/users`, `PATCH /api/admin/users/{id}/role`, `PATCH /api/admin/users/{id}/status`
+- Built `PATCH /api/admin/users/promote-by-email` — promoted animse66@gmail.com to admin
+- Built AdminPanel Users tab and Creators tab in React
 
-**Decisions made:**
-- pip install over uv sync for Railway (reliability > speed)
-- VITE_BACKEND_URL confirmed as the correct Vite env var name
+*Data persistence:*
+- Moved contract file storage from `/tmp` (ephemeral on Railway) to base64 in MongoDB — zero data loss on redeploy
+- Hardened seed endpoint: SEED_KEY from env var + `confirm_wipe=yes` guard
 
-**Status:**
-- Config files ready to push
-- Awaiting user to: (1) create MongoDB Atlas cluster, (2) deploy backend to Railway, (3) deploy frontend to Vercel
-- Phases 2–4 to be built after deployment is confirmed live
-
-**Next session priority:**
-1. Confirm deployment is live and healthy
-2. Phase 2 — Admin manual credit limit control (PATCH /api/admin/creators/{id}/credit-limit)
-3. Phase 3 — Document generation (all 13 PDFs)
-4. Phase 4 — Instagram Graph API
+**Next session:** UI polish → then Phase 3 (Onboarding Wizard)
 
 ---
 
 ### Session 3 — May 2026
 **Work done:**
-
-*Logo:*
-- Wired AthanniLogo shared component into all remaining pages (Login, Register, Landing, BrandPortal, BrandRegister)
-- Removed all inline `AthanniMark` SVG functions — zero remaining consumers outside AthanniLogo.jsx
-- Switched logo from fragile SVG text-metric positioning to CSS `position:absolute` approach — coin dot now always correctly aligned regardless of font-load state
-- Coin dot upgraded from flat `#B87333` to metallic radial gradient (bright gold highlight → warm amber → dark bronze edge) matching real 25 paise coin photo
-
-*Palette — iterated twice:*
-- Started with Forest + Copper (#0B3D2E + #B87333) — discarded
-- Landed on **White + Navy + Blue + Copper** (Option B from reference mockup):
-  - `--navy: #0D1B3E` — dark navy (nav background, primary buttons, CTA footer)
-  - `--accent: #2646B0` — medium blue (numbers, label accents, stats)
-  - `--copper: #B87333` — copper (logo coin, premium CTA buttons, pricing highlight)
-  - `--bg: #FFFFFF` — white body, `--bg-soft: #F7F8FC` — cool off-white panels
-
-*Pages overhauled:*
-- `Landing.jsx` — full rewrite: dark navy nav, "Get paid today. Not in 60 days." hero, live credit memo card (Priya Sharma × boAt), stats strip, 4-step loop, pillars, fee ladder, navy CTA footer + copper button
-- `Dashboard.jsx` — blue on credit limit amount, health score, usage bar, tier dot/bar (navy), pipeline bars (blue), "New Deal" → btn-brand (navy)
-- `AppShell.jsx` — dark navy header, cream logo, white/translucent nav links, active state = navy fill
-- `index.css` — new palette tokens, added `btn-copper`, `btn-brand-ghost`, `chip-copper`
-
-*Verification:*
-- **35/35 unit tests passing** — backend code completely unaffected
-- All backend Python files pass syntax check (py_compile)
-- Zero `#002FA7` (old blue) references remain in frontend src
-
-**Decisions made:**
+- AthanniLogo shared component wired into all pages
+- CSS coin-on-i wordmark with metallic radial gradient (reliable cross font-load)
 - Palette locked: Navy #0D1B3E + Blue #2646B0 + Copper #B87333
-- Logo: CSS-based coin dot (reliable across font states) with metallic radial gradient
-- `btn-copper` = premium/hero CTA · `btn-brand` = standard page CTA (navy) · `btn-ghost` = secondary
-
-**Next session priority:**
-1. **Deployment first** — Vercel (frontend) + Railway (backend) + MongoDB Atlas
-2. Then Phase 2 — Admin credit limit control (manual override per creator)
-3. Then Phase 3 — Document generation (all 13 deal lifecycle docs)
-4. Then Phase 4 — Instagram Graph API integration
-5. Remaining Phase 1 pages (DealNew, DealDetail, Profile, AdminPanel) can be polished in parallel
+- Landing.jsx — full first overhaul
+- Dashboard.jsx — blue colour pass
+- AppShell.jsx — dark navy header
+- index.css — palette tokens, btn-copper, btn-brand-ghost, chip-copper
+- 35/35 tests passing
 
 ---
 
 ### Session 2 — May 2026
 **Work done:**
-- Completed full Phase 0 rebrand
-- Find-and-replaced all "My Pay" / "mypay" / "MyPay" / "MYPAY_" across all backend + frontend source files
-- Updated backend/.env: DB_NAME → athanni_dev, APP_NAME → athanni, bank fields → ATHANNI_*, SENDER_EMAIL → notifications@athanni.co.in
-- Updated backend/app/config.py: all field names and defaults
-- Updated backend/app/main.py, __init__.py, db.py: logger names, API title, boot message
-- Updated backend/app/routers/deals.py, admin.py: bank details endpoint + email subject
-- Updated backend/seed_admin.py: all defaults
-- Updated backend/app/services/payout_service.py: narration string
-- Updated frontend/index.html: title + meta description + favicon link
-- Updated frontend/src/context/AuthContext.jsx + AuthContext.js: mypay_token → athanni_token
-- Updated frontend/src/lib/api.js: token key
-- Updated all 8 frontend pages: all "My Pay" → "Athanni" text references
-- Updated CLAUDE_CONTEXT.md: all references
-- Designed Athanni SVG logo: double-ring coin mark with italic ₹, + "athanni" wordmark in Instrument Serif
-- Created frontend/public/athanni-logo.svg (black), athanni-logo-white.svg (white), favicon.svg (coin mark only)
-- Wired AthanniMark inline SVG component into AppShell, Landing, Login, Register, BrandPortal, BrandRegister
-- Confirmed 35/35 unit tests pass
-
-**Decisions made:** None new — all Phase 0 decisions were already logged
-
-**Next session should start with:** Phase 1 — Frontend UI Overhaul (start with Landing page, then Dashboard)
+- Full Phase 0 rebrand — all "My Pay" → "Athanni" across entire codebase
+- AthanniLogo SVG component created
+- Confirmed 35/35 tests pass
 
 ---
 
 ### Session 1 — May 2026
 **Work done:**
-- Full codebase audit and architecture review
-- Brainstormed: rebrand, domain, UI redesign, Instagram API
-- Mapped complete 9-phase deal lifecycle — all gaps identified
+- Full codebase audit + architecture review
+- Mapped 9-phase deal lifecycle, all gaps identified
 - Identified all 13 missing documents
-- Researched social media APIs — Instagram Graph API chosen (Basic Display deprecated)
-- Researched Phyllo pricing (custom/enterprise — skip for MVP)
-- Created ATHANNI_ROADMAP.md
-- Created MASTER_PROGRESS.md (this file)
-- Restructured phases: frontend-first, bank-dependent features pushed to Phase 9–10
-
-**Decisions made:** See Decisions Log above
-
-**Next session should start with:** Phase 1 — Frontend UI Overhaul (start with Landing page, then Dashboard)
-
----
-
-## How To Use This File (instructions for Claude)
-
-1. Read this entire file before starting any work in this repo
-2. Read CLAUDE_CONTEXT.md for full technical architecture + API reference
-3. Find the first phase with incomplete tasks `[ ]` — that is where to start
-4. Mark tasks `[x]` as you complete them
-5. Add a new entry to Session Log at the end of every session
-6. Add new decisions to Decisions Log as they are made
-7. Never delete old entries — only add and update
-8. If Akhi gives new instructions that change a phase, update that phase and log the decision
+- Researched social media APIs
+- Created ATHANNI_ROADMAP.md + MASTER_PROGRESS.md
+- Restructured phases: frontend-first, bank-dependent features pushed to end
 
 ---
 
@@ -509,10 +757,13 @@ Cost: ~₹1–5/call
 | Credit limit logic | `backend/app/services/credit_limit.py` |
 | Contract parser | `backend/app/services/contract_parser.py` |
 | Payout service | `backend/app/services/payout_service.py` |
+| Document generator | `backend/app/services/document_generator.py` (Phase 4 — not built yet) |
 | Frontend pages | `frontend/src/pages/` |
 | Auth context | `frontend/src/context/AuthContext.jsx` |
 | API client | `frontend/src/lib/api.js` |
 | Design system | `frontend/src/index.css` + `tailwind.config.js` |
-| Backend env vars | `backend/.env` |
-| Frontend env vars | `frontend/.env` |
+| Backend env vars | `backend/.env` (local) · Railway dashboard (production) |
+| Frontend env vars | `frontend/.env` (local) · Vercel dashboard (production) |
 | Run tests | `cd backend && pytest app/tests/unit/ -q` |
+| Seed demo data | `GET /api/seed-demo?key={SEED_KEY}` |
+| Promote to admin | `PATCH /api/admin/users/promote-by-email` body: `{"email":"...","role":"admin"}` |
